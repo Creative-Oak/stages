@@ -67,12 +67,16 @@ public struct Stage: Codable, Hashable, Sendable {
   public var windows: [StageWindow]
   /// Union of the stage's overlays.
   public var frame: Rect
-  /// Number of "App Icon Window" badges on the tile; nil for the centre stage.
+  /// Number of "App Icon Window" badges on the tile; nil for the centre stage and pooled overflow.
   public var appIconCount: Int?
+  /// Overflow stages are all parked at one spot, so geometry can't tell which windows share a
+  /// stage. A pooled stage is one overflow window; StageStore regroups them from history.
+  public var pooled: Bool
 
-  public init(position: Position, order: Int, displayID: UInt32, windows: [StageWindow], frame: Rect, appIconCount: Int?) {
+  public init(position: Position, order: Int, displayID: UInt32, windows: [StageWindow], frame: Rect,
+              appIconCount: Int?, pooled: Bool = false) {
     self.position = position; self.order = order; self.displayID = displayID
-    self.windows = windows; self.frame = frame; self.appIconCount = appIconCount
+    self.windows = windows; self.frame = frame; self.appIconCount = appIconCount; self.pooled = pooled
   }
 
   public var windowIDs: Set<UInt32> { Set(windows.map(\.id)) }
@@ -305,16 +309,27 @@ public enum StageReader {
       func tileIcons(_ c: Component) -> Int {
         icons.filter { c.frame.contains(x: $0.bounds.midX, y: $0.bounds.midY) }.count
       }
-      for (position, group) in [(Stage.Position.strip, inColumn), (.overflow, overflow)] {
-        for (i, c) in group.sorted(by: { ($0.frame.minY, $0.frame.minX) < ($1.frame.minY, $1.frame.minX) }).enumerated() {
-          let stage = Stage(position: position, order: i, displayID: d.id, windows: c.windows.map(stageWindow),
-                            frame: c.frame, appIconCount: tileIcons(c))
-          diag.classification.append("\(position.rawValue) \(i) \(c.frame) x=\(Int(c.frame.minX)) \(c.anyOnscreen ? "onscreen" : "offscreen") apps=\(stage.owners)")
-          if stage.appIconCount != stage.owners.count {
-            diag.concerns.append("\(position.rawValue) stage \(i) has \(stage.owners.count) app(s) but \(stage.appIconCount ?? 0) icon badge(s)")
-          }
-          stages.append(stage)
+      for (i, c) in inColumn.sorted(by: { ($0.frame.minY, $0.frame.minX) < ($1.frame.minY, $1.frame.minX) }).enumerated() {
+        let stage = Stage(position: .strip, order: i, displayID: d.id, windows: c.windows.map(stageWindow),
+                          frame: c.frame, appIconCount: tileIcons(c))
+        diag.classification.append("strip \(i) \(c.frame) x=\(Int(c.frame.minX)) \(c.anyOnscreen ? "onscreen" : "offscreen") apps=\(stage.owners)")
+        if stage.appIconCount != stage.owners.count {
+          diag.concerns.append("strip stage \(i) has \(stage.owners.count) app(s) but \(stage.appIconCount ?? 0) icon badge(s)")
         }
+        stages.append(stage)
+      }
+
+      // Overflow: every stage's thumbnail is parked at the same anchor (right edge and vertical
+      // centre), so overlapping says nothing about grouping. One pooled stage per window,
+      // front-to-back.
+      let pool = overflow.flatMap(\.windows).sorted { $0.z < $1.z }
+      for (i, w) in pool.enumerated() {
+        stages.append(Stage(position: .overflow, order: i, displayID: d.id, windows: [stageWindow(w)],
+                            frame: overlayOf[w.id]!.bounds, appIconCount: nil, pooled: true))
+      }
+      if !pool.isEmpty {
+        let poolIcons = overflow.map(tileIcons).reduce(0, +)
+        diag.classification.append("overflow pool: \(pool.count) window(s), \(poolIcons) icon badge(s), apps=\(pool.map(\.owner))")
       }
     }
 

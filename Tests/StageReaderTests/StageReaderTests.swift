@@ -54,7 +54,7 @@ import Testing
       let s = StageReader.read(scene.capture)
       #expect(s.stages(.strip).count == 4, "strip at \(stripX)")
       #expect(s.stages(.overflow).map(\.windowIDs) == [[mail]], "strip at \(stripX)")
-      #expect(s.stages(.overflow).first?.appIconCount == 1)
+      #expect(s.stages(.overflow).first?.pooled == true)
     }
   }
 

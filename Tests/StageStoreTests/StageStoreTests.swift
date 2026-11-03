@@ -98,3 +98,37 @@ private func snapshot(_ stages: [Stage]) -> StageSnapshot {
     #expect(StageMatcher.match(stages: [[1]], records: [plain, named]) == [0: named.id])
   }
 }
+
+private func pooled(_ id: UInt32, order: Int) -> Stage {
+  var s = stage([id], .overflow, order: order)
+  s.pooled = true
+  return s
+}
+
+@MainActor @Suite struct PooledOverflowTests {
+  @Test func groupSeenInStripIsReunitedInOverflow() {
+    let store = StageStore(directory: nil)
+    let group = store.reconcile(snapshot([stage([1], .centre), stage([2, 3]), stage([4])]))
+    store.rename(group[1].id, to: "Research")
+    // Pushed to overflow: the reader can only report one pooled stage per window.
+    let later = store.reconcile(snapshot([stage([1], .centre), stage([4]), pooled(2, order: 0), pooled(3, order: 1)]))
+    let overflow = later.filter { $0.stage.position == .overflow }
+    #expect(overflow.count == 1)
+    #expect(overflow[0].id == group[1].id && overflow[0].record.name == "Research")
+    #expect(overflow[0].stage.windowIDs == [2, 3])
+  }
+
+  @Test func separateStagesStaySeparate() {
+    let store = StageStore(directory: nil)
+    let first = store.reconcile(snapshot([stage([2]), stage([3])]))
+    let later = store.reconcile(snapshot([pooled(2, order: 0), pooled(3, order: 1)]))
+    #expect(later.map(\.id) == first.map(\.id))
+    #expect(later.map(\.stage.order) == [0, 1])
+  }
+
+  @Test func unknownPooledWindowsStayAlone() {
+    let store = StageStore(directory: nil)
+    let s = store.reconcile(snapshot([pooled(7, order: 0), pooled(8, order: 1)]))
+    #expect(s.count == 2)
+  }
+}

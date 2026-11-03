@@ -108,7 +108,7 @@ public final class StageStore {
   /// Match the snapshot's stages to records, creating records for new stages.
   public func reconcile(_ snapshot: StageSnapshot) -> [IdentifiedStage] {
     guard snapshot.isAvailable else { return [] }
-    let stages = snapshot.stages
+    let stages = regroupPooled(snapshot.stages)
     let matches = StageMatcher.match(stages: stages.map(\.windowIDs), records: Array(records.values))
     var seen = Set<UUID>()
     var result: [IdentifiedStage] = []
@@ -123,6 +123,35 @@ public final class StageStore {
     // Records not on screen: keep the customised ones (with their last window IDs), drop the rest.
     for (id, r) in records where !seen.contains(id) && !r.isCustomised { records[id] = nil }
     save()
+    return result
+  }
+
+  /// The reader can't see which overflow windows share a stage (they're all parked at one spot),
+  /// so it reports one pooled stage per window. A stage only reaches overflow from the strip,
+  /// where its members were visible: windows a record knew as one stage go back together.
+  func regroupPooled(_ stages: [Stage]) -> [Stage] {
+    var owner: [UInt32: UUID] = [:]
+    for r in records.values.sorted(by: { ($0.lastActive ?? $0.createdAt) < ($1.lastActive ?? $1.createdAt) }) {
+      for id in r.windowIDs { owner[id] = r.id }   // most recently active record wins a shared ID
+    }
+    var result: [Stage] = []
+    var merged: [UUID: Int] = [:]   // record id -> index in result
+    for s in stages {
+      guard s.pooled, let wid = s.windows.first?.id, let rid = owner[wid] else { result.append(s); continue }
+      if let i = merged[rid] {
+        result[i].windows = (result[i].windows + s.windows).sorted { $0.z < $1.z }
+        result[i].frame = result[i].frame.union(s.frame)
+      } else {
+        merged[rid] = result.count
+        result.append(s)
+      }
+    }
+    // Keep overflow order contiguous after merging.
+    var next: [UInt32: Int] = [:]
+    for i in result.indices where result[i].position == .overflow {
+      result[i].order = next[result[i].displayID, default: 0]
+      next[result[i].displayID, default: 0] += 1
+    }
     return result
   }
 

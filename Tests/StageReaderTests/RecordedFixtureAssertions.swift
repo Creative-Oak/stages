@@ -28,13 +28,34 @@ import Testing
   }
 
   @Test(arguments: ["overflow", "centre-two-apps"])
-  func overflowWithGroupedStage(_ name: String) throws {
+  func overflowIsPooled(_ name: String) throws {
+    // Maps and Mail overlap offscreen only because overflow stages share one parking spot.
     let s = try read(name)
     #expect(owners(s, .centre) == [["Ghostty", "Claude"]])
     #expect(owners(s, .strip) == [["AppCleaner"], ["Chess"], ["Calendar"], ["Safari"]])
-    #expect(owners(s, .overflow) == [["Maps", "Mail"]])
-    #expect(s.stages(.overflow)[0].appIconCount == 2)
+    #expect(owners(s, .overflow) == [["Maps"], ["Mail"]])
+    #expect(s.stages(.overflow).allSatisfy { $0.pooled })
     #expect(s.diagnostics.confidence == .high, "\(s.diagnostics.concerns)")
+  }
+
+  @Test func manyOverlaysOverflowIsFourStages() throws {
+    // Verified by Magnus via the Dock: Calendar and Mail each come forward alone.
+    let s = try read("many-overlays")
+    #expect(owners(s, .centre) == [["Ghostty"]])
+    #expect(owners(s, .strip) == [["Signal"], ["Safari"], ["Claude"], ["Finder"]])
+    #expect(s.stages(.strip)[3].windows.count == 3)   // three Finder windows fanned in one tile
+    #expect(owners(s, .overflow) == [["Calendar"], ["Maps"], ["Notes"], ["Mail"]])
+    #expect(s.diagnostics.unmatchedOverlayIDs.count == 7)   // offscreen leftovers
+    #expect(s.diagnostics.confidence == .high, "\(s.diagnostics.concerns)")
+  }
+
+  @Test(arguments: ["overflow", "many-overlays", "mid-animation"])
+  func overflowThumbnailsShareOneAnchor(_ name: String) throws {
+    // Every overflow thumbnail: same right edge and vertical centre, whatever its size.
+    let frames = try read(name).stages(.overflow).map(\.frame)
+    #expect(frames.count >= 2)
+    #expect(Set(frames.map(\.maxX)).count == 1)
+    #expect(Set(frames.map(\.midY)).count == 1)
   }
 
   @Test func centreOverlaysWhenPresentAreUsed() throws {
@@ -53,9 +74,9 @@ import Testing
     #expect(owners(s, .centre) == [["Calendar"]])
     #expect(owners(s, .strip) == [["AppCleaner"], ["Chess"], ["Ghostty", "Claude"], ["Safari"]])
     #expect(s.stages(.strip)[2].appIconCount == 2)
-    // Strip shown: overflow sits where hidden strip tiles would (x −269).
-    #expect(owners(s, .overflow) == [["Maps", "Mail"]])
-    #expect(s.stages(.overflow)[0].frame.minX == -269)
+    // Strip shown: the overflow anchor moves right with the column (right edge −16, not −300).
+    #expect(owners(s, .overflow) == [["Maps"], ["Mail"]])
+    #expect(s.stages(.overflow).allSatisfy { $0.frame.maxX == -16 })
   }
 
   @Test func stageManagerOffRecorded() throws {
