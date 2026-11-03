@@ -1,0 +1,2201 @@
+{
+  "frames" : [
+    {
+      "appWindowGroupingBehavior" : 0,
+      "capturedAt" : "2026-11-03T16:35:49Z",
+      "displays" : [
+        {
+          "frame" : {
+            "h" : 956,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "id" : 1,
+          "isMain" : true
+        }
+      ],
+      "screenRecordingGranted" : false,
+      "stageManagerEnabled" : true,
+      "stripAutoHide" : true,
+      "windows" : [
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 1,
+            "w" : 1,
+            "x" : 1000000000,
+            "y" : 1000000000
+          },
+          "bundleID" : "com.apple.WindowManager",
+          "id" : 11571,
+          "layer" : 0,
+          "onscreen" : true,
+          "owner" : "WindowManager",
+          "pid" : 951,
+          "z" : 0
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 82,
+            "w" : 66,
+            "x" : -292,
+            "y" : 270
+          },
+          "bundleID" : "com.apple.WindowManager",
+          "id" : 11570,
+          "layer" : 19,
+          "onscreen" : true,
+          "owner" : "WindowManager",
+          "pid" : 951,
+          "z" : 1
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 82,
+            "w" : 66,
+            "x" : -292,
+            "y" : 430
+          },
+          "bundleID" : "com.apple.WindowManager",
+          "id" : 11569,
+          "layer" : 19,
+          "onscreen" : true,
+          "owner" : "WindowManager",
+          "pid" : 951,
+          "z" : 2
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 82,
+            "w" : 66,
+            "x" : -292,
+            "y" : 617
+          },
+          "bundleID" : "com.apple.WindowManager",
+          "id" : 11568,
+          "layer" : 19,
+          "onscreen" : true,
+          "owner" : "WindowManager",
+          "pid" : 951,
+          "z" : 3
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 64,
+            "w" : 64,
+            "x" : 0,
+            "y" : 456
+          },
+          "bundleID" : "com.apple.TextInputUI.xpc.CursorUIViewService",
+          "id" : 11552,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "CursorUIViewService",
+          "pid" : 3041,
+          "z" : 4
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 348,
+            "w" : 450,
+            "x" : 510,
+            "y" : 321
+          },
+          "bundleID" : "net.freemacsoft.AppCleaner-SmartDelete",
+          "id" : 11497,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "AppCleaner SmartDelete",
+          "pid" : 3141,
+          "z" : 5
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 64,
+            "w" : 64,
+            "x" : 0,
+            "y" : 456
+          },
+          "bundleID" : "com.apple.TextInputUI.xpc.CursorUIViewService",
+          "id" : 11396,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "CursorUIViewService",
+          "pid" : 3041,
+          "z" : 6
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 91,
+            "w" : 205,
+            "x" : -248,
+            "y" : 684
+          },
+          "bundleID" : "com.apple.WindowManager",
+          "id" : 11081,
+          "layer" : 19,
+          "onscreen" : false,
+          "owner" : "WindowManager",
+          "pid" : 951,
+          "z" : 7
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 64,
+            "w" : 64,
+            "x" : 0,
+            "y" : 892
+          },
+          "bundleID" : "com.apple.TextInputUI.xpc.CursorUIViewService",
+          "id" : 11019,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "CursorUIViewService",
+          "pid" : 3041,
+          "z" : 8
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 174,
+            "w" : 197,
+            "x" : -269,
+            "y" : 164
+          },
+          "bundleID" : "com.mitchellh.ghostty",
+          "id" : 11008,
+          "layer" : 0,
+          "onscreen" : true,
+          "owner" : "Ghostty",
+          "pid" : 3014,
+          "z" : 9
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 64,
+            "w" : 64,
+            "x" : 0,
+            "y" : 456
+          },
+          "bundleID" : "com.apple.TextInputUI.xpc.CursorUIViewService",
+          "id" : 10854,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "CursorUIViewService",
+          "pid" : 3041,
+          "z" : 10
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 64,
+            "w" : 64,
+            "x" : 0,
+            "y" : 892
+          },
+          "bundleID" : "com.apple.TextInputUI.xpc.CursorUIViewService",
+          "id" : 10824,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "CursorUIViewService",
+          "pid" : 3041,
+          "z" : 11
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 180,
+            "w" : 360,
+            "x" : 8,
+            "y" : 401
+          },
+          "bundleID" : "com.apple.notificationcenterui",
+          "id" : 10814,
+          "layer" : -2147483601,
+          "onscreen" : true,
+          "owner" : "Notification Centre",
+          "pid" : 1085,
+          "z" : 12
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 500,
+            "w" : 500,
+            "x" : 0,
+            "y" : 456
+          },
+          "bundleID" : "com.apple.appkit.xpc.openAndSavePanelService",
+          "id" : 10674,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Open and Save Panel Service",
+          "pid" : 18793,
+          "z" : 13
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 137,
+            "w" : 761,
+            "x" : 355,
+            "y" : 93
+          },
+          "bundleID" : "com.apple.Safari",
+          "id" : 10673,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Safari",
+          "pid" : 18781,
+          "z" : 14
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 162,
+            "w" : 197,
+            "x" : -269,
+            "y" : 500
+          },
+          "bundleID" : "com.apple.Safari",
+          "id" : 10670,
+          "layer" : 0,
+          "onscreen" : true,
+          "owner" : "Safari",
+          "pid" : 18781,
+          "z" : 15
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 500,
+            "w" : 500,
+            "x" : 0,
+            "y" : 456
+          },
+          "bundleID" : "com.apple.Safari",
+          "id" : 10669,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Safari",
+          "pid" : 18781,
+          "z" : 16
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.Safari",
+          "id" : 10668,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Safari",
+          "pid" : 18781,
+          "z" : 17
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 81,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "id" : 10450,
+          "layer" : -2147483602,
+          "onscreen" : true,
+          "owner" : "Window Server",
+          "pid" : 608,
+          "z" : 18
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "id" : 10449,
+          "layer" : 24,
+          "name" : "Window Server window 1",
+          "onscreen" : true,
+          "owner" : "Window Server",
+          "pid" : 608,
+          "z" : 19
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 1039,
+            "w" : 522,
+            "x" : 8,
+            "y" : -99
+          },
+          "bundleID" : "com.apple.PaperKit.extension.ui",
+          "id" : 10114,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "PaperKitExtension",
+          "pid" : 16950,
+          "z" : 20
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.Notes",
+          "id" : 10109,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Notes",
+          "pid" : 16944,
+          "z" : 21
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.Notes",
+          "id" : 10108,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Notes",
+          "pid" : 16944,
+          "z" : 22
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.Notes",
+          "id" : 10107,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Notes",
+          "pid" : 16944,
+          "z" : 23
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 64,
+            "w" : 64,
+            "x" : 221,
+            "y" : 912
+          },
+          "bundleID" : "com.apple.TextInputUI.xpc.CursorUIViewService",
+          "id" : 10809,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "CursorUIViewService",
+          "pid" : 3041,
+          "z" : 24
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 500,
+            "w" : 500,
+            "x" : 0,
+            "y" : 456
+          },
+          "bundleID" : "com.apple.notificationcenterui",
+          "id" : 10808,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Notification Centre",
+          "pid" : 1085,
+          "z" : 25
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.finder",
+          "id" : 10012,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Finder",
+          "pid" : 3020,
+          "z" : 26
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.finder",
+          "id" : 10011,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Finder",
+          "pid" : 3020,
+          "z" : 27
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.iCal",
+          "id" : 10010,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Calendar",
+          "pid" : 14140,
+          "z" : 28
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.finder",
+          "id" : 10008,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Finder",
+          "pid" : 3020,
+          "z" : 29
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.iCal",
+          "id" : 10007,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Calendar",
+          "pid" : 14140,
+          "z" : 30
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.mitchellh.ghostty",
+          "id" : 10005,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Ghostty",
+          "pid" : 3014,
+          "z" : 31
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.mitchellh.ghostty",
+          "id" : 10004,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Ghostty",
+          "pid" : 3014,
+          "z" : 32
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.mitchellh.ghostty",
+          "id" : 10003,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Ghostty",
+          "pid" : 3014,
+          "z" : 33
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.mitchellh.ghostty",
+          "id" : 10002,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Ghostty",
+          "pid" : 3014,
+          "z" : 34
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.anthropic.claudefordesktop",
+          "id" : 10001,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Claude",
+          "pid" : 4788,
+          "z" : 35
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.anthropic.claudefordesktop",
+          "id" : 10000,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Claude",
+          "pid" : 4788,
+          "z" : 36
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 1,
+            "w" : 1,
+            "x" : 1000000000,
+            "y" : 1000000000
+          },
+          "bundleID" : "com.apple.WindowManager",
+          "id" : 11575,
+          "layer" : 0,
+          "onscreen" : true,
+          "owner" : "WindowManager",
+          "pid" : 951,
+          "z" : 37
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.anthropic.claudefordesktop",
+          "id" : 9999,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Claude",
+          "pid" : 4788,
+          "z" : 38
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 1,
+            "w" : 1,
+            "x" : 1000000000,
+            "y" : 1000000000
+          },
+          "bundleID" : "com.apple.WindowManager",
+          "id" : 11572,
+          "layer" : 0,
+          "onscreen" : true,
+          "owner" : "WindowManager",
+          "pid" : 951,
+          "z" : 39
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 82,
+            "w" : 66,
+            "x" : -292,
+            "y" : 781
+          },
+          "bundleID" : "com.apple.WindowManager",
+          "id" : 11567,
+          "layer" : 19,
+          "onscreen" : true,
+          "owner" : "WindowManager",
+          "pid" : 951,
+          "z" : 40
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.Preview",
+          "id" : 9991,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Preview",
+          "pid" : 8763,
+          "z" : 41
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 82,
+            "w" : 66,
+            "x" : -379,
+            "y" : 401
+          },
+          "bundleID" : "com.apple.WindowManager",
+          "id" : 11566,
+          "layer" : 19,
+          "onscreen" : false,
+          "owner" : "WindowManager",
+          "pid" : 951,
+          "z" : 42
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.Preview",
+          "id" : 9990,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Preview",
+          "pid" : 8763,
+          "z" : 43
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 956,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.WindowManager",
+          "id" : 11565,
+          "layer" : -2147483603,
+          "onscreen" : true,
+          "owner" : "WindowManager",
+          "pid" : 951,
+          "z" : 44
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.Preview",
+          "id" : 9989,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Preview",
+          "pid" : 8763,
+          "z" : 45
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.mail",
+          "id" : 9983,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Mail",
+          "pid" : 5042,
+          "z" : 46
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.mail",
+          "id" : 9982,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Mail",
+          "pid" : 5042,
+          "z" : 47
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.mail",
+          "id" : 9979,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Mail",
+          "pid" : 5042,
+          "z" : 48
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 64,
+            "w" : 64,
+            "x" : 0,
+            "y" : 892
+          },
+          "bundleID" : "com.apple.TextInputUI.xpc.CursorUIViewService",
+          "id" : 10962,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "CursorUIViewService",
+          "pid" : 3041,
+          "z" : 49
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.mail",
+          "id" : 9977,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Mail",
+          "pid" : 5042,
+          "z" : 50
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.Maps",
+          "id" : 9972,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Maps",
+          "pid" : 7110,
+          "z" : 51
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.Maps",
+          "id" : 9971,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Maps",
+          "pid" : 7110,
+          "z" : 52
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.Maps",
+          "id" : 9970,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Maps",
+          "pid" : 7110,
+          "z" : 53
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.Maps",
+          "id" : 9969,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Maps",
+          "pid" : 7110,
+          "z" : 54
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 0,
+            "w" : 0,
+            "x" : 0,
+            "y" : 956
+          },
+          "bundleID" : "com.apple.iCal",
+          "id" : 9857,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Calendar",
+          "pid" : 14140,
+          "z" : 55
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 0,
+            "w" : 0,
+            "x" : 0,
+            "y" : 956
+          },
+          "bundleID" : "com.apple.iCal",
+          "id" : 9856,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Calendar",
+          "pid" : 14140,
+          "z" : 56
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 64,
+            "w" : 64,
+            "x" : 0,
+            "y" : 892
+          },
+          "bundleID" : "com.apple.TextInputUI.xpc.CursorUIViewService",
+          "id" : 10248,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "CursorUIViewService",
+          "pid" : 3041,
+          "z" : 57
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 0,
+            "w" : 0,
+            "x" : 0,
+            "y" : 956
+          },
+          "bundleID" : "com.apple.iCal",
+          "id" : 9854,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Calendar",
+          "pid" : 14140,
+          "z" : 58
+        },
+        {
+          "alpha" : 0,
+          "bounds" : {
+            "h" : 0,
+            "w" : 0,
+            "x" : 771,
+            "y" : 922
+          },
+          "bundleID" : "com.apple.controlcenter",
+          "id" : 9783,
+          "layer" : 101,
+          "onscreen" : false,
+          "owner" : "Control Centre",
+          "pid" : 1316,
+          "z" : 59
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 127,
+            "w" : 497,
+            "x" : 652,
+            "y" : 457
+          },
+          "bundleID" : "com.apple.iCal",
+          "id" : 9242,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Calendar",
+          "pid" : 14140,
+          "z" : 60
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 64,
+            "w" : 64,
+            "x" : 0,
+            "y" : 456
+          },
+          "bundleID" : "com.apple.iCal",
+          "id" : 8783,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Calendar",
+          "pid" : 14140,
+          "z" : 61
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 299,
+            "w" : 420,
+            "x" : 479,
+            "y" : 212
+          },
+          "bundleID" : "com.apple.iCal",
+          "id" : 8782,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Calendar",
+          "pid" : 14140,
+          "z" : 62
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 501,
+            "w" : 537,
+            "x" : 420,
+            "y" : 111
+          },
+          "bundleID" : "com.apple.iCal",
+          "id" : 8781,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Calendar",
+          "pid" : 14140,
+          "z" : 63
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 131,
+            "w" : 146,
+            "x" : -269,
+            "y" : 344
+          },
+          "bundleID" : "com.apple.iCal",
+          "id" : 8778,
+          "layer" : 0,
+          "onscreen" : true,
+          "owner" : "Calendar",
+          "pid" : 14140,
+          "z" : 64
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 1,
+            "w" : 1,
+            "x" : 1000000000,
+            "y" : 1000000000
+          },
+          "bundleID" : "com.apple.WindowManager",
+          "id" : 11573,
+          "layer" : 0,
+          "onscreen" : true,
+          "owner" : "WindowManager",
+          "pid" : 951,
+          "z" : 65
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 254,
+            "w" : 254,
+            "x" : 1216,
+            "y" : 702
+          },
+          "bundleID" : "com.apple.LinkedNotesUIService",
+          "id" : 6907,
+          "layer" : 25,
+          "onscreen" : false,
+          "owner" : "LinkedNotesUIService",
+          "pid" : 10563,
+          "z" : 66
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 180,
+            "w" : 360,
+            "x" : 8,
+            "y" : 221
+          },
+          "bundleID" : "com.apple.notificationcenterui",
+          "id" : 10812,
+          "layer" : -2147483601,
+          "onscreen" : true,
+          "owner" : "Notification Centre",
+          "pid" : 1085,
+          "z" : 67
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 180,
+            "w" : 180,
+            "x" : 8,
+            "y" : 41
+          },
+          "bundleID" : "com.apple.notificationcenterui",
+          "id" : 10810,
+          "layer" : -2147483601,
+          "onscreen" : true,
+          "owner" : "Notification Centre",
+          "pid" : 1085,
+          "z" : 68
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 162,
+            "w" : 197,
+            "x" : -269,
+            "y" : 500
+          },
+          "bundleID" : "com.apple.WindowManager",
+          "id" : 11292,
+          "layer" : 19,
+          "onscreen" : true,
+          "owner" : "WindowManager",
+          "pid" : 951,
+          "z" : 69
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 600,
+            "w" : 475,
+            "x" : 349,
+            "y" : 91
+          },
+          "bundleID" : "com.apple.Notes",
+          "id" : 10110,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Notes",
+          "pid" : 16944,
+          "z" : 70
+        },
+        {
+          "alpha" : 0.10000000149011612,
+          "bounds" : {
+            "h" : 21,
+            "w" : 71,
+            "x" : 537,
+            "y" : 524
+          },
+          "bundleID" : "com.anthropic.claudefordesktop",
+          "id" : 3609,
+          "layer" : 103,
+          "onscreen" : false,
+          "owner" : "Claude",
+          "pid" : 4788,
+          "z" : 71
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.iCal",
+          "id" : 10014,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Calendar",
+          "pid" : 14140,
+          "z" : 72
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 500,
+            "w" : 500,
+            "x" : 0,
+            "y" : 456
+          },
+          "bundleID" : "com.apple.PaperKit.extension.ui",
+          "id" : 10210,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "PaperKitExtension",
+          "pid" : 16950,
+          "z" : 73
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.iCal",
+          "id" : 10013,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Calendar",
+          "pid" : 14140,
+          "z" : 74
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.Safari",
+          "id" : 10665,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Safari",
+          "pid" : 18781,
+          "z" : 75
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 64,
+            "w" : 64,
+            "x" : 0,
+            "y" : 456
+          },
+          "bundleID" : "com.apple.appkit.xpc.openAndSavePanelService",
+          "id" : 3179,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Open and Save Panel Service",
+          "pid" : 7333,
+          "z" : 76
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 1,
+            "w" : 1,
+            "x" : 1000000000,
+            "y" : 1000000000
+          },
+          "bundleID" : "com.apple.WindowManager",
+          "id" : 11574,
+          "layer" : 0,
+          "onscreen" : true,
+          "owner" : "WindowManager",
+          "pid" : 951,
+          "z" : 77
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.anthropic.claudefordesktop",
+          "id" : 9998,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Claude",
+          "pid" : 4788,
+          "z" : 78
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 500,
+            "w" : 500,
+            "x" : 0,
+            "y" : 456
+          },
+          "bundleID" : "com.apple.Maps",
+          "id" : 2709,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Maps",
+          "pid" : 7110,
+          "z" : 79
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.Preview",
+          "id" : 9988,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Preview",
+          "pid" : 8763,
+          "z" : 80
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 600,
+            "w" : 800,
+            "x" : 335,
+            "y" : 195
+          },
+          "bundleID" : "com.anthropic.claudefordesktop",
+          "id" : 255,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Claude",
+          "pid" : 4788,
+          "z" : 81
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 64,
+            "w" : 64,
+            "x" : 0,
+            "y" : 456
+          },
+          "bundleID" : "com.anthropic.claudefordesktop",
+          "id" : 253,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Claude",
+          "pid" : 4788,
+          "z" : 82
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 64,
+            "w" : 64,
+            "x" : 0,
+            "y" : 892
+          },
+          "bundleID" : "com.apple.TextInputUI.xpc.CursorUIViewService",
+          "id" : 11284,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "CursorUIViewService",
+          "pid" : 3041,
+          "z" : 83
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 956,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.anthropic.claudefordesktop",
+          "id" : 252,
+          "layer" : 1000,
+          "onscreen" : false,
+          "owner" : "Claude",
+          "pid" : 4788,
+          "z" : 84
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 156,
+            "w" : 145,
+            "x" : -269,
+            "y" : 669
+          },
+          "bundleID" : "com.apple.Maps",
+          "id" : 11283,
+          "layer" : 0,
+          "onscreen" : true,
+          "owner" : "Maps",
+          "pid" : 7110,
+          "z" : 85
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 907,
+            "w" : 1454,
+            "x" : 8,
+            "y" : 41
+          },
+          "bundleID" : "com.anthropic.claudefordesktop",
+          "id" : 251,
+          "layer" : 0,
+          "onscreen" : true,
+          "owner" : "Claude",
+          "pid" : 4788,
+          "z" : 86
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 500,
+            "w" : 500,
+            "x" : 0,
+            "y" : 456
+          },
+          "bundleID" : "com.apple.CharacterPaletteIM",
+          "id" : 6355,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Emoji & Symbols",
+          "pid" : 8399,
+          "z" : 87
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 500,
+            "w" : 500,
+            "x" : 0,
+            "y" : 456
+          },
+          "bundleID" : "com.apple.campo",
+          "id" : 10630,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Siri",
+          "pid" : 3026,
+          "z" : 88
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 64,
+            "w" : 64,
+            "x" : 0,
+            "y" : 456
+          },
+          "bundleID" : "com.mitchellh.ghostty",
+          "id" : 189,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Ghostty",
+          "pid" : 3014,
+          "z" : 89
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 64,
+            "w" : 64,
+            "x" : 0,
+            "y" : 892
+          },
+          "bundleID" : "com.apple.TextInputUI.xpc.CursorUIViewService",
+          "id" : 11217,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "CursorUIViewService",
+          "pid" : 3041,
+          "z" : 90
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 156,
+            "w" : 145,
+            "x" : -269,
+            "y" : 669
+          },
+          "bundleID" : "com.apple.WindowManager",
+          "id" : 11020,
+          "layer" : 19,
+          "onscreen" : true,
+          "owner" : "WindowManager",
+          "pid" : 951,
+          "z" : 91
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 0,
+            "w" : 0,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.universalcontrol",
+          "id" : 185,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Universal Control",
+          "pid" : 4404,
+          "z" : 92
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.finder",
+          "id" : 10006,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Finder",
+          "pid" : 3020,
+          "z" : 93
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 64,
+            "w" : 64,
+            "x" : 0,
+            "y" : 892
+          },
+          "bundleID" : "com.apple.TextInputUI.xpc.CursorUIViewService",
+          "id" : 7193,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "CursorUIViewService",
+          "pid" : 3041,
+          "z" : 94
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 500,
+            "w" : 500,
+            "x" : 0,
+            "y" : 456
+          },
+          "bundleID" : "com.apple.appkit.xpc.openAndSavePanelService",
+          "id" : 6602,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Open and Save Panel Service",
+          "pid" : 8774,
+          "z" : 95
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 500,
+            "w" : 500,
+            "x" : 0,
+            "y" : 456
+          },
+          "bundleID" : "com.raycast.macos",
+          "id" : 101,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Raycast",
+          "pid" : 3157,
+          "z" : 96
+        },
+        {
+          "alpha" : 0,
+          "bounds" : {
+            "h" : 1,
+            "w" : 1,
+            "x" : 81,
+            "y" : 138
+          },
+          "bundleID" : "com.typewhisper.mac",
+          "id" : 97,
+          "layer" : -2147483644,
+          "onscreen" : true,
+          "owner" : "TypeWhisper",
+          "pid" : 3166,
+          "z" : 97
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 174,
+            "w" : 197,
+            "x" : -269,
+            "y" : 164
+          },
+          "bundleID" : "com.apple.WindowManager",
+          "id" : 10537,
+          "layer" : 19,
+          "onscreen" : true,
+          "owner" : "WindowManager",
+          "pid" : 951,
+          "z" : 98
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 632,
+            "w" : 420,
+            "x" : 700,
+            "y" : 74
+          },
+          "bundleID" : "com.apple.mail",
+          "id" : 293,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Mail",
+          "pid" : 5042,
+          "z" : 99
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 160,
+            "w" : 420,
+            "x" : 0,
+            "y" : 796
+          },
+          "bundleID" : "com.typewhisper.mac",
+          "id" : 96,
+          "layer" : 1000,
+          "onscreen" : false,
+          "owner" : "TypeWhisper",
+          "pid" : 3166,
+          "z" : 100
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 131,
+            "w" : 146,
+            "x" : -269,
+            "y" : 344
+          },
+          "bundleID" : "com.apple.WindowManager",
+          "id" : 10536,
+          "layer" : 19,
+          "onscreen" : true,
+          "owner" : "WindowManager",
+          "pid" : 951,
+          "z" : 101
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 0,
+            "w" : 0,
+            "x" : 0,
+            "y" : 0
+          },
+          "id" : 292,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "textunderstandin",
+          "pid" : 1072,
+          "z" : 102
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 300,
+            "w" : 500,
+            "x" : 0,
+            "y" : 656
+          },
+          "bundleID" : "com.typewhisper.mac",
+          "id" : 95,
+          "layer" : 1000,
+          "onscreen" : false,
+          "owner" : "TypeWhisper",
+          "pid" : 3166,
+          "z" : 103
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 500,
+            "w" : 500,
+            "x" : 0,
+            "y" : 456
+          },
+          "bundleID" : "com.apple.mail",
+          "id" : 291,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Mail",
+          "pid" : 5042,
+          "z" : 104
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 500,
+            "w" : 500,
+            "x" : 0,
+            "y" : 456
+          },
+          "bundleID" : "com.typewhisper.mac",
+          "id" : 94,
+          "layer" : 1000,
+          "onscreen" : false,
+          "owner" : "TypeWhisper",
+          "pid" : 3166,
+          "z" : 105
+        },
+        {
+          "alpha" : 0,
+          "bounds" : {
+            "h" : 475,
+            "w" : 750,
+            "x" : 360,
+            "y" : 130
+          },
+          "bundleID" : "com.raycast.macos",
+          "id" : 85,
+          "layer" : 8,
+          "onscreen" : false,
+          "owner" : "Raycast",
+          "pid" : 3157,
+          "z" : 106
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 907,
+            "w" : 723,
+            "x" : 8,
+            "y" : 41
+          },
+          "bundleID" : "com.apple.Notes",
+          "id" : 10111,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Notes",
+          "pid" : 16944,
+          "z" : 107
+        },
+        {
+          "alpha" : 0,
+          "bounds" : {
+            "h" : 577,
+            "w" : 844,
+            "x" : 313,
+            "y" : 190
+          },
+          "bundleID" : "com.apple.campo",
+          "id" : 64,
+          "layer" : 23,
+          "onscreen" : false,
+          "owner" : "Siri",
+          "pid" : 3026,
+          "z" : 108
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.Notes",
+          "id" : 10106,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Notes",
+          "pid" : 16944,
+          "z" : 109
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 956,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.finder",
+          "id" : 59,
+          "layer" : -2147483603,
+          "onscreen" : true,
+          "owner" : "Finder",
+          "pid" : 3020,
+          "z" : 110
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.Safari",
+          "id" : 10667,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Safari",
+          "pid" : 18781,
+          "z" : 111
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 180,
+            "w" : 180,
+            "x" : 188,
+            "y" : 41
+          },
+          "bundleID" : "com.apple.notificationcenterui",
+          "id" : 29,
+          "layer" : -2147483601,
+          "onscreen" : true,
+          "owner" : "Notification Centre",
+          "pid" : 1085,
+          "z" : 112
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.Safari",
+          "id" : 10666,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Safari",
+          "pid" : 18781,
+          "z" : 113
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 159,
+            "w" : 253,
+            "x" : -553,
+            "y" : 355
+          },
+          "bundleID" : "com.apple.WindowManager",
+          "id" : 10564,
+          "layer" : 19,
+          "onscreen" : false,
+          "owner" : "WindowManager",
+          "pid" : 951,
+          "z" : 114
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 33,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.MenuBarAgent",
+          "id" : 9973,
+          "layer" : 24,
+          "onscreen" : false,
+          "owner" : "MenuBarAgent",
+          "pid" : 1065,
+          "z" : 115
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 64,
+            "w" : 64,
+            "x" : 0,
+            "y" : 456
+          },
+          "bundleID" : "com.apple.finder",
+          "id" : 123,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Finder",
+          "pid" : 3020,
+          "z" : 116
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 956,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.notificationcenterui",
+          "id" : 23,
+          "layer" : 23,
+          "onscreen" : false,
+          "owner" : "Notification Centre",
+          "pid" : 1085,
+          "z" : 117
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 90,
+            "w" : 40,
+            "x" : 1414,
+            "y" : 58
+          },
+          "bundleID" : "com.apple.AccessibilityVisualsAgent",
+          "id" : 21,
+          "layer" : 3000,
+          "onscreen" : false,
+          "owner" : "AccessibilityVisualsAgent",
+          "pid" : 1002,
+          "z" : 118
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 159,
+            "w" : 253,
+            "x" : -553,
+            "y" : 355
+          },
+          "bundleID" : "com.apple.mail",
+          "id" : 11052,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Mail",
+          "pid" : 5042,
+          "z" : 119
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 300,
+            "w" : 300,
+            "x" : 639,
+            "y" : 540
+          },
+          "bundleID" : "com.apple.AccessibilityVisualsAgent",
+          "id" : 20,
+          "layer" : 3000,
+          "onscreen" : false,
+          "owner" : "AccessibilityVisualsAgent",
+          "pid" : 1002,
+          "z" : 120
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 500,
+            "w" : 500,
+            "x" : 0,
+            "y" : 456
+          },
+          "bundleID" : "com.apple.Notes",
+          "id" : 10112,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Notes",
+          "pid" : 16944,
+          "z" : 121
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 500,
+            "w" : 500,
+            "x" : 0,
+            "y" : 456
+          },
+          "bundleID" : "com.apple.loginwindow",
+          "id" : 65,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "loginwindow",
+          "pid" : 612,
+          "z" : 122
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 64,
+            "w" : 64,
+            "x" : 0,
+            "y" : 456
+          },
+          "bundleID" : "com.apple.TextInputUI.xpc.CursorUIViewService",
+          "id" : 11444,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "CursorUIViewService",
+          "pid" : 3041,
+          "z" : 123
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 100,
+            "w" : 247,
+            "x" : 611,
+            "y" : 445
+          },
+          "bundleID" : "com.apple.TextInputSwitcher",
+          "id" : 112,
+          "layer" : 2147483628,
+          "onscreen" : false,
+          "owner" : "TextInputSwitcher",
+          "pid" : 3155,
+          "z" : 124
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 64,
+            "w" : 64,
+            "x" : 0,
+            "y" : 456
+          },
+          "bundleID" : "com.apple.TextInputUI.xpc.CursorUIViewService",
+          "id" : 8880,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "CursorUIViewService",
+          "pid" : 3041,
+          "z" : 125
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 956,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.WindowManager",
+          "id" : 14,
+          "layer" : -2147483624,
+          "name" : "Wallpaper",
+          "onscreen" : true,
+          "owner" : "WindowManager",
+          "pid" : 951,
+          "z" : 126
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 92,
+            "w" : 199,
+            "x" : -271,
+            "y" : 694
+          },
+          "bundleID" : "com.apple.WindowManager",
+          "id" : 643,
+          "layer" : 19,
+          "onscreen" : false,
+          "owner" : "WindowManager",
+          "pid" : 951,
+          "z" : 127
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 956,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "bundleID" : "com.apple.dock",
+          "id" : 52,
+          "layer" : 20,
+          "onscreen" : false,
+          "owner" : "Dock",
+          "pid" : 3018,
+          "z" : 128
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 0,
+            "w" : 0,
+            "x" : 0,
+            "y" : 956
+          },
+          "bundleID" : "com.apple.iCal",
+          "id" : 9855,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Calendar",
+          "pid" : 14140,
+          "z" : 129
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 64,
+            "w" : 64,
+            "x" : 0,
+            "y" : 892
+          },
+          "bundleID" : "com.apple.TextInputUI.xpc.CursorUIViewService",
+          "id" : 10247,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "CursorUIViewService",
+          "pid" : 3041,
+          "z" : 130
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 0,
+            "w" : 0,
+            "x" : 1091,
+            "y" : 589
+          },
+          "bundleID" : "com.apple.iCal",
+          "id" : 9853,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Calendar",
+          "pid" : 14140,
+          "z" : 131
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 956,
+            "w" : 1470,
+            "x" : 0,
+            "y" : 0
+          },
+          "id" : 3,
+          "layer" : -2147483626,
+          "onscreen" : true,
+          "owner" : "Window Server",
+          "pid" : 608,
+          "z" : 132
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 0,
+            "w" : 0,
+            "x" : 1112,
+            "y" : 563
+          },
+          "bundleID" : "com.apple.iCal",
+          "id" : 9852,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Calendar",
+          "pid" : 14140,
+          "z" : 133
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 127,
+            "w" : 497,
+            "x" : 652,
+            "y" : 457
+          },
+          "bundleID" : "com.apple.iCal",
+          "id" : 9261,
+          "layer" : 0,
+          "onscreen" : false,
+          "owner" : "Calendar",
+          "pid" : 14140,
+          "z" : 134
+        },
+        {
+          "alpha" : 1,
+          "bounds" : {
+            "h" : 40,
+            "w" : 28,
+            "x" : 700,
+            "y" : 726
+          },
+          "id" : 2,
+          "layer" : 2147483630,
+          "onscreen" : false,
+          "owner" : "Window Server",
+          "pid" : 608,
+          "z" : 135
+        }
+      ]
+    }
+  ],
+  "intervalMs" : 200,
+  "name" : "no-screen-recording",
+  "note" : "Recorded from Claude Code's shell, which has no Screen Recording grant. Strip auto-hidden; one overflow stage (Mail)."
+}
