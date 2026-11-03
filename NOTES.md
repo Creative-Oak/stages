@@ -11,18 +11,20 @@ Machine: MacBook, single 1470×956 display, macOS 27.2 (26B123), Xcode 26.3 / SD
 | # | Behaviour | Status |
 |---|---|---|
 | 1 | `WindowManager` creates one "Gesture Blocking Overlay" per app window in a stage (not per stage). | verified 2026-11 (Magnus's probe) |
-| 2 | Overlay bounds equal the window's bounds to the pixel once settled; strip windows are reported at thumbnail size. | verified 2026-11 (probe) for strip tiles. **Open:** on 2026-11-03 the centre window (Claude #251 `[8,41 1454×907]`) had no overlay within ±4 pt. Nearest was an *offscreen* layer-0 WindowManager window `[7,39 1445×907]`. Not yet known whether the centre overlay goes stale or is missing. |
+| 2 | Strip overlays equal their window's bounds to the pixel. **Centre overlays are unreliable:** in 4 of the 6 Stage Manager-on recordings the centre windows had no overlay at all; when present they are layer 0, reported offscreen, and inset 1–5 pt (Calendar `[221,120 1028×749]` vs overlay `[222,121 1024×747]`). | strip: verified 2026-11-03 (all fixtures). Centre: verified 2026-11-03 (`strip-hidden`, `overflow` vs `centre-two-apps`, `mid-animation`) |
 | 3 | Overlay layer 0 = centre stage, layer 19 = strip thumbnail. | verified 2026-11 (probe) |
-| 4 | A grouped stage shows as overlapping, slightly offset thumbnails (e.g. `[-237,147 95×155]` + `[-269,166 96×153]`). Grouped tiles fan out to the *right* of the strip column. | overlap verified 2026-11 (probe); fan-out direction **assumed** |
+| 4 | A grouped stage shows as overlapping, slightly offset thumbnails. Members fan out on both sides of the strip column: Ghostty `[9,471]` + Claude `[40,452]` with the column at x 16; overflow Maps `[-478,367]` + Mail `[-553,355]`. | verified 2026-11-03 (`mid-animation`, `overflow`) |
 | 5 | "App Icon Window" (layer 19) is one badge per app per tile; 66×82, sits about 23 pt left of the tile, near its bottom. | count verified (probe); geometry verified 2026-11-03 (live capture) |
-| 6 | Strip hidden ⇒ thumbnails at x ≈ −269 (on 1470 wide). They may be reported `onscreen=false`. | verified 2026-11 (probe). On 2026-11-03 hidden tiles were reported `onscreen=true` |
-| 7 | Overflow stages sit further left, offscreen, with their own overlay and icon. | verified. Observed at x −479 (probe) and x −553 (2026-11-03, Mail, 253 wide). The position varies, so we classify by distance from the strip column, not by a fixed x |
+| 6 | Strip hidden ⇒ thumbnails at x −269 (on 1470 wide), reported `onscreen=true`. Shown ⇒ column at x 16, and tiles are larger (Mail 197×181 hidden, 253×159 shown). | verified 2026-11-03 (`strip-hidden`, `strip-visible`). The brief's probe saw `onscreen=false` once; the reader handles both |
+| 7 | Overflow stages sit one slot left of the strip column, offscreen, with their own overlays and icons: x −553 with the strip hidden, x −269 with it shown. | verified 2026-11-03 (`overflow`, `mid-animation`) |
 | 8 | Overlay window IDs get reused; app window IDs are stable while the window lives. | verified 2026-11 (probe) |
-| 9 | Mid-animation frames are noisy (in-between overlay sizes, placeholders under overlays). | verified 2026-11 (probe); the 2-read gate with overlay sizes in the signature is designed against it but **not yet tested on a recorded animation** |
+| 9 | Mid-animation frames are noisy: the grouped tile grew 122→126 wide over ~300 ms, and the centre window was briefly 5 pt off its overlay. The two-read gate with overlay sizes in the signature committed only at frame 4 (first equal pair). | verified 2026-11-03 (`mid-animation`) |
 | 10 | Other WindowManager windows to ignore: `Wallpaper`, `Event Shield Window`, untitled 1×1 at 1e9,1e9. | verified 2026-11 (probe, and 2026-11-03 capture) |
 | 11 | Raising any window of a stage brings the whole stage to the centre, overflow stages included. | verified 2026-11 (probe) for Dock clicks; **open** for background windows of overflow stages |
 | 12 | Placeholder windows (untitled 64×64 / 500×500 at `[0,456]`) are offscreen and have no overlay. | verified 2026-11-03 (live capture) |
-| 13 | Strip column = the rightmost left edge among tile clusters; anything > 24 pt left of it is overflow. In-column tiles that are offscreen while others are onscreen are also overflow. | **assumed** (derived from the numbers above) |
+| 13 | Strip column = the rightmost left edge among tile clusters; anything > 24 pt left of it is overflow. In-column tiles that are offscreen while others are onscreen are also overflow. | verified 2026-11-03 for the 24 pt rule (overflow is ~285 pt left; groups stick out ≤ 7 pt). The onscreen rule is **assumed** (never triggered in recordings) |
+| 15 | **Centre rule (deviates from the brief):** centre = windows matched to a layer-0 overlay **plus onscreen candidates with no overlay**. In every recorded frame, onscreen layer-0 app windows were exactly the strip thumbnails (all matched) plus the centre windows; placeholders (`[0,456]` 64×64 / 500×500) were always offscreen. Listed in `Diagnostics.centreWithoutOverlay`. | verified 2026-11-03 (all fixtures, 21 frames) |
+| 16 | Leftover overlays that match nothing are routine and offscreen (e.g. `[381,221 1454×865]` layer 0, `[-248,684 205×91]` layer 19, a duplicate of Mail's overlay). Only *onscreen* unmatched overlays lower confidence. | verified 2026-11-03 |
 | 14 | When the strip hides, tiles slide off the left edge of *their own* display. A tile outside every display belongs to the display whose vertical span holds it and whose left edge is nearest. | **assumed**. Breaks if a second display sits to the left of the main one (hidden tiles at x −269 would land inside it). Needs a two-display fixture |
 
 ## Permissions
@@ -40,8 +42,9 @@ Machine: MacBook, single 1470×956 display, macOS 27.2 (26B123), Xcode 26.3 / SD
 
 ## Open questions
 
-- Is the centre stage's overlay reliably present and matched (see #2)?
+- When exactly does Stage Manager create and drop centre overlays? (It doesn't matter for reading any more; see #15.)
+- A grouped tile *in the visible strip, strip hidden* hasn't been recorded (`grouped.json` captured no group).
 - Does raising a background window of an overflow stage bring the whole stage forward?
 - `AppWindowGroupingBehavior` "All at Once" (0) vs "One at a Time" (1)?
 - Stages across Spaces and a second display.
-- Does WindowManager's AX tree expose strip tiles (e.g. `AXPress`)? Run `xcrun swift tools/probe.swift --ax`.
+- Does WindowManager's AX tree expose strip tiles (e.g. `AXPress`)? `--ax` not yet run: Ghostty needs Accessibility.

@@ -78,9 +78,9 @@ import Testing
   @Test func matchingIsOneToOneWithTolerance() {
     var scene = Scene()
     let a = scene.appWindow("Safari", "A", Rect(x: 100, y: 100, w: 800, h: 600), onscreen: true)
-    let b = scene.appWindow("Safari", "B", Rect(x: 103, y: 102, w: 800, h: 600), onscreen: true)
+    let b = scene.appWindow("Safari", "B", Rect(x: 103, y: 102, w: 800, h: 600), onscreen: false)
     scene.overlay(Rect(x: 101, y: 100, w: 800, h: 600), layer: 0)   // closer to a
-    scene.overlay(Rect(x: 120, y: 100, w: 800, h: 600), layer: 0)   // out of tolerance for both
+    scene.overlay(Rect(x: 120, y: 100, w: 800, h: 600), layer: 0)   // out of tolerance for both, onscreen
     let s = StageReader.read(scene.capture)
     #expect(s.stages(.centre).first?.windowIDs == [a])
     #expect(s.diagnostics.rejected.contains { $0.windowID == b })
@@ -210,5 +210,25 @@ import Testing
     let f = try Self.fixture(name)
     #expect(!f.frames.isEmpty)
     for frame in f.frames { _ = StageReader.read(frame) }
+  }
+}
+
+@Suite struct CentreWithoutOverlayTests {
+  @Test func onscreenUnmatchedWindowsAreCentre() {
+    var scene = Scene.singles()
+    let ghostty = scene.appWindow("Ghostty", "~/dev", Rect(x: 8, y: 41, w: 723, h: 907), onscreen: true)
+    let s = StageReader.read(scene.capture)
+    #expect(s.stages(.centre).first?.windowIDs.contains(ghostty) == true)
+    #expect(s.diagnostics.centreWithoutOverlay == [ghostty])
+    #expect(s.stages(.centre).first?.windows.first { $0.id == ghostty }?.overlayID == nil)
+  }
+
+  @Test func offscreenLeftoverOverlaysDoNotLowerConfidence() {
+    var scene = Scene.singles(stripX: 8)
+    scene.overlay(Rect(x: 381, y: 221, w: 1454, h: 865), layer: 0, onscreen: false)
+    scene.overlay(Rect(x: -248, y: 684, w: 205, h: 91), layer: 19, onscreen: false)
+    let s = StageReader.read(scene.capture)
+    #expect(s.diagnostics.unmatchedOverlayIDs.count == 2)
+    #expect(s.diagnostics.confidence == .high, "\(s.diagnostics.concerns)")
   }
 }

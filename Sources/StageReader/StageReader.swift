@@ -44,7 +44,8 @@ public struct StageWindow: Codable, Hashable, Sendable {
   public var title: String?
   /// The window's reported frame (thumbnail frame when in the strip).
   public var frame: Rect
-  public var overlayID: UInt32
+  /// nil for a centre window that Stage Manager drew no overlay for (common; see NOTES.md #2).
+  public var overlayID: UInt32?
   /// Front-to-back order across the whole window list.
   public var z: Int
 }
@@ -96,7 +97,12 @@ public struct Diagnostics: Codable, Hashable, Sendable {
   public var matches: [Match] = []
   /// Non-system windows that were not taken as stage members, and why.
   public var rejected: [Rejection] = []
+  /// Overlays that matched no window. Offscreen leftovers are routine; onscreen ones are a concern.
   public var unmatchedOverlayIDs: [UInt32] = []
+  /// Centre windows taken because they are onscreen, not because an overlay matched them.
+  public var centreWithoutOverlay: [UInt32] = []
+  /// Layer-0 windows dropped as tiny (< 40×40) or transparent; counted, not listed.
+  public var filteredCount = 0
   /// How each strip component was classified (strip vs overflow), for debugging.
   public var classification: [String] = []
   public var confidence: Confidence = .high
@@ -172,9 +178,9 @@ public enum StageReader {
         w.layer != 0 ? "layer \(w.layer)" :
         w.alpha <= 0 ? "transparent" :
         (w.bounds.w < C.minWindowSide || w.bounds.h < C.minWindowSide) ? "smaller than 40×40" : nil
-      if let reason {
-        // Menu-bar extras, tooltips etc. are noise; only report layer-0 rejects.
-        if w.layer == 0 { diag.rejected.append(.init(windowID: w.id, owner: w.owner, title: w.name, bounds: w.bounds, reason: reason)) }
+      if reason != nil {
+        // Menu-bar strips (h 33), zero-size helpers, tooltips: noise, so only counted.
+        if w.layer == 0 { diag.filteredCount += 1 }
       } else {
         candidates.append(w)
       }
@@ -203,14 +209,18 @@ public enum StageReader {
     diag.unmatchedOverlayIDs = overlays.filter { !usedOverlays.contains($0.id) }.map(\.id)
 
     let members = candidates.filter { overlayOf[$0.id] != nil }
-    for w in candidates where overlayOf[w.id] == nil {
+    // Stage Manager often draws no overlay for centre windows (or a stale one a few pt off).
+    // Every recording shows that onscreen, unmatched candidates are exactly the centre windows;
+    // the placeholders this rule must keep out are always offscreen.
+    let unmatchedOnscreen = candidates.filter { overlayOf[$0.id] == nil && $0.onscreen }
+    for w in candidates where overlayOf[w.id] == nil && !w.onscreen {
       diag.rejected.append(.init(windowID: w.id, owner: w.owner, title: w.name, bounds: w.bounds,
-                                 reason: "no overlay within ±\(Int(C.matchTolerance)) pt"))
+                                 reason: "offscreen, no overlay within ±\(Int(C.matchTolerance)) pt"))
     }
 
     func stageWindow(_ w: RawWindow) -> StageWindow {
       StageWindow(id: w.id, pid: w.pid, owner: w.owner, bundleID: w.bundleID, title: w.name,
-                  frame: w.bounds, overlayID: overlayOf[w.id]!.id, z: w.z)
+                  frame: w.bounds, overlayID: overlayOf[w.id]?.id, z: w.z)
     }
 
     let displays = capture.displays.isEmpty
@@ -228,10 +238,14 @@ public enum StageReader {
     for d in displays.sorted(by: { ($0.isMain ? 0 : 1, $0.id) < ($1.isMain ? 0 : 1, $1.id) }) {
       let here = members.filter { display(for: overlayOf[$0.id]!.bounds).id == d.id }
 
-      // 3. Centre stage = matched windows whose overlay is layer 0.
-      let centre = here.filter { overlayOf[$0.id]!.layer == C.centreLayer }.sorted { $0.z < $1.z }
+      // 3. Centre stage = matched windows whose overlay is layer 0, plus onscreen candidates
+      //    with no overlay at all.
+      let bare = unmatchedOnscreen.filter { display(for: $0.bounds).id == d.id }
+      diag.centreWithoutOverlay += bare.map(\.id)
+      let centre = (here.filter { overlayOf[$0.id]!.layer == C.centreLayer } + bare).sorted { $0.z < $1.z }
       if !centre.isEmpty {
-        let frame = centre.dropFirst().reduce(overlayOf[centre[0].id]!.bounds) { $0.union(overlayOf[$1.id]!.bounds) }
+        let bounds = centre.map { overlayOf[$0.id]?.bounds ?? $0.bounds }
+        let frame = bounds.dropFirst().reduce(bounds[0]) { $0.union($1) }
         stages.append(Stage(position: .centre, order: 0, displayID: d.id, windows: centre.map(stageWindow),
                             frame: frame, appIconCount: nil))
       }
@@ -287,13 +301,10 @@ public enum StageReader {
     }
 
     // 6. Confidence: anything we can't explain lowers it.
-    if !diag.unmatchedOverlayIDs.isEmpty {
-      diag.concerns.append("\(diag.unmatchedOverlayIDs.count) overlay(s) matched no window: \(diag.unmatchedOverlayIDs.map { "#\($0)" }.joined(separator: " "))")
-    }
-    let strays = candidates.filter { overlayOf[$0.id] == nil && $0.onscreen }
-    if !strays.isEmpty {
-      diag.concerns.append("\(strays.count) onscreen app window(s) without an overlay: " +
-                           strays.map { "\($0.owner) #\($0.id) \($0.bounds)" }.joined(separator: ", "))
+    let liveUnmatched = overlays.filter { !usedOverlays.contains($0.id) && $0.onscreen }
+    if !liveUnmatched.isEmpty {
+      diag.concerns.append("\(liveUnmatched.count) onscreen overlay(s) matched no window: " +
+                           liveUnmatched.map { "#\($0.id) \($0.bounds)" }.joined(separator: ", "))
     }
     if !stages.contains(where: { $0.position == .centre }) {
       diag.concerns.append("no centre stage (desktop shown, or the centre overlay wasn't matched)")

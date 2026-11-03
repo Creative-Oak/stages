@@ -35,7 +35,7 @@ func warnPermissions(_ c: WindowCapture) {
 }
 
 func label(_ w: StageWindow) -> String {
-  "\(w.owner) · \"\(w.title ?? "—")\" · #\(w.id) · z\(w.z) · \(w.frame) · overlay #\(w.overlayID)"
+  "\(w.owner) · \"\(w.title ?? "—")\" · #\(w.id) · z\(w.z) · \(w.frame) · \(w.overlayID.map { "overlay #\($0)" } ?? "no overlay (onscreen)")"
 }
 
 func report(_ s: StageSnapshot, capture: WindowCapture? = nil) {
@@ -59,7 +59,7 @@ func report(_ s: StageSnapshot, capture: WindowCapture? = nil) {
   }
   print("\n── Classification")
   for c in d.classification { print("   ", c) }
-  print("\n── Rejected candidates (\(d.rejected.count))")
+  print("\n── Rejected candidates (\(d.rejected.count); \(d.filteredCount) tiny or transparent not listed)")
   for r in d.rejected.prefix(40) { print("    \(r.owner) · \"\(r.title ?? "—")\" · #\(r.windowID) · \(r.bounds) · \(r.reason)") }
   print("\n── signature: \(s.signature)")
 }
