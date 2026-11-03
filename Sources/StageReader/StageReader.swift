@@ -75,11 +75,16 @@ public struct Stage: Codable, Hashable, Sendable {
   /// Overflow stages are all parked at one spot, so geometry can't tell which windows share a
   /// stage. A pooled stage is one overflow window; StageStore regroups them from history.
   public var pooled: Bool
+  /// For pooled stages with no history: windows with the same hint probably share a stage.
+  /// Set to the app when "Show windows from an application" is All at Once (an app's windows
+  /// come forward together); nil with One at a Time. Assumed; see NOTES.md #18.
+  public var poolHint: String?
 
   public init(position: Position, order: Int, displayID: UInt32, windows: [StageWindow], frame: Rect,
-              appIconCount: Int?, pooled: Bool = false) {
+              appIconCount: Int?, pooled: Bool = false, poolHint: String? = nil) {
     self.position = position; self.order = order; self.displayID = displayID
     self.windows = windows; self.frame = frame; self.appIconCount = appIconCount; self.pooled = pooled
+    self.poolHint = poolHint
   }
 
   public var windowIDs: Set<UInt32> { Set(windows.map(\.id)) }
@@ -329,9 +334,11 @@ public enum StageReader {
       // centre), so overlapping says nothing about grouping. One pooled stage per window,
       // front-to-back.
       let pool = overflow.flatMap(\.windows).sorted { $0.z < $1.z }
+      let allAtOnce = capture.appWindowGroupingBehavior != 1   // 0 = All at Once (default)
       for (i, w) in pool.enumerated() {
         stages.append(Stage(position: .overflow, order: i, displayID: d.id, windows: [stageWindow(w)],
-                            frame: overlayOf[w.id]!.bounds, appIconCount: nil, pooled: true))
+                            frame: overlayOf[w.id]!.bounds, appIconCount: nil, pooled: true,
+                            poolHint: allAtOnce ? (w.bundleID ?? "name:\(w.owner)") : nil))
       }
       if !pool.isEmpty {
         let poolIcons = overflow.map(tileIcons).reduce(0, +)

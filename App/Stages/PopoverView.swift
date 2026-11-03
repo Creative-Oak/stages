@@ -43,6 +43,7 @@ struct PopoverView: View {
     HStack {
       Button("Copy Diagnostics") { model.copyDiagnostics() }
         .disabled(model.snapshot == nil)
+      Button("Matching…") { MatchingDebugWindow.show(model: model) }
       Spacer()
       Button("Quit Stages") { NSApp.terminate(nil) }
         .keyboardShortcut("q")

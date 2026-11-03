@@ -27,6 +27,16 @@ Machine: MacBook, single 1470×956 display, macOS 27.2 (26B123), Xcode 27.2 (fro
 | 15 | **Centre rule (deviates from the brief):** centre = windows matched to a layer-0 overlay **plus onscreen candidates with no overlay**. In every recorded frame, onscreen layer-0 app windows were exactly the strip thumbnails (all matched) plus the centre windows; placeholders (`[0,456]` 64×64 / 500×500) were always offscreen. Listed in `Diagnostics.centreWithoutOverlay`. | verified 2026-11-03 (all fixtures, 21 frames) |
 | 16 | Leftover overlays that match nothing are routine and offscreen (e.g. `[381,221 1454×865]` layer 0, `[-248,684 205×91]` layer 19, a duplicate of Mail's overlay). Only *onscreen* unmatched overlays lower confidence. | verified 2026-11-03 |
 | 14 | When the strip hides, tiles slide off the left edge of *their own* display. A tile outside every display belongs to the display whose vertical span holds it and whose left edge is nearest. | **assumed**. Breaks if a second display sits to the left of the main one (hidden tiles at x −269 would land inside it). Needs a two-display fixture |
+| 18 | With "Show windows from an application: All at Once" (`AppWindowGroupingBehavior=0`), an app's windows share one stage, so pooled overflow windows **with no history** are grouped by app. History (records seen in the centre or strip) always wins over this hint. | **assumed**, from Apple's wording "Show all available windows for an app when you switch to it" and the Finder ×3 overflow group in `curious`. To test: can windows of one app live in two stages? |
+
+## Stage identity (StageStore)
+
+| Behaviour | Status |
+|---|---|
+| A stage only reaches overflow from the strip, and a new window first appears in the centre, so a stage's membership is always observable at some point while Stages runs. Overflow windows are regrouped from records whose membership was seen in the centre or strip (`membershipSeen`); records written before that field existed are not trusted for this. | reasoning (Magnus, 2026-11-03); "new windows appear in the centre" **assumed**: Apple's guide is silent on where a launched app or a ⌘N window goes |
+| Apple's guide documents grouping only as dragging an app onto the centre group, and ungrouping as dragging it back to the strip. Shift-click grouping, strip capacity and overflow are undocumented. | read 2026-11-03 (support.apple.com mac-help "Use Stage Manager" and "Desktop & Dock settings", macOS 27) |
+| Window IDs restart after a reboot and may collide with stored ones, so the store records the boot time (`kern.boottime`) and, on a new boot, drops stored window IDs and matches by fingerprint (apps + titles + AX documents). | collision risk **assumed**; boot-time handling unit-tested |
+| A stage absorbing most of two records' windows is a merge (keep customised, else older; the other goes dormant with a link). A record whose windows went to several stages is a split (largest part keeps it). Dormant records revive when their windows split off again. | unit-tested; live grouping/ungrouping **to verify** |
 
 ## Permissions
 
@@ -46,7 +56,8 @@ Machine: MacBook, single 1470×956 display, macOS 27.2 (26B123), Xcode 27.2 (fro
 
 - When exactly does Stage Manager create and drop centre overlays? (It doesn't matter for reading any more; see #15.)
 - A grouped tile *in the visible strip, strip hidden* hasn't been recorded (`grouped.json` captured no group).
-- A grouped stage that is already in overflow when Stages first launches can't be regrouped (no history): it shows as separate stages until it's seen in the strip.
+- A grouped stage of *several apps* that is already in overflow when Stages first launches can't be regrouped (no history, and the same-app hint doesn't apply): it shows as separate stages until it's seen in the strip.
+- Where does a newly launched app go: its own stage, or the current centre stage? And a ⌘N window?
 - Does raising a background window of an overflow stage bring the whole stage forward?
 - `AppWindowGroupingBehavior` "All at Once" (0) vs "One at a Time" (1)?
 - Stages across Spaces and a second display.

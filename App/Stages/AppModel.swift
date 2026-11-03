@@ -9,9 +9,14 @@ import WindowSource
 final class AppModel {
   private(set) var snapshot: StageSnapshot?
   private(set) var stages: [IdentifiedStage] = []
+  /// All records, on screen or not (debug window).
+  private(set) var records: [StageRecord] = []
 
   @ObservationIgnored let store = StageStore()
   @ObservationIgnored private let poller = StagePoller()
+  /// "windowID|title" already sent to the document resolver.
+  @ObservationIgnored private var resolvedDocuments = Set<String>()
+  @ObservationIgnored private var resolving = false
 
   func start() {
     poller.onCommit = { [weak self] snapshot in self?.apply(snapshot) }
@@ -30,14 +35,36 @@ final class AppModel {
   private func apply(_ snapshot: StageSnapshot) {
     self.snapshot = snapshot
     stages = store.reconcile(snapshot)
+    records = Array(store.records.values)
     // Counts only: window titles stay out of the system log.
     if let reason = snapshot.unavailable {
       Self.log.notice("committed: unavailable \(reason.rawValue, privacy: .public)")
     } else {
       let d = snapshot.diagnostics
-      Self.log.notice("committed: \(snapshot.stages.count) stages, \(d.overlayCount) overlays, confidence \(d.confidence.rawValue, privacy: .public)")
+      Self.log.notice("committed: \(snapshot.stages.count) read, \(self.stages.count) stages, \(d.overlayCount) overlays, confidence \(d.confidence.rawValue, privacy: .public)")
+    }
+    resolveDocuments()
+  }
+
+  /// Look up AX document paths for windows (or titles) not seen before.
+  private func resolveDocuments() {
+    guard !resolving, DocumentResolver.isTrusted else { return }
+    let pending = stages.flatMap(\.stage.windows).filter { w in
+      w.title != nil && !resolvedDocuments.contains("\(w.id)|\(w.title!)")
+    }
+    guard !pending.isEmpty else { return }
+    resolving = true
+    pending.forEach { resolvedDocuments.insert("\($0.id)|\($0.title!)") }
+    Task {
+      let docs = await DocumentResolver.resolve(pending)
+      store.attachDocuments(docs)
+      records = Array(store.records.values)
+      resolving = false
     }
   }
+
+  var lastReasons: [UUID: MatchReason] { store.lastReasons }
+  var discardedStaleIDs: Bool { store.discardedStaleIDs }
 
   @ObservationIgnored private static let log = Logger(subsystem: "dk.creativeoak.stages", category: "stages")
 
@@ -54,6 +81,7 @@ final class AppModel {
       if let r = store.records[s.id] { s.record = r }
       return s
     }
+    records = Array(store.records.values)
   }
 
   func pokePoller() { poller.poke() }

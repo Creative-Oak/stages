@@ -1,97 +1,25 @@
+import Darwin
 import Foundation
 import StageReader
 
-/// The section inks from Lodestone.
-public enum Ink: String, CaseIterable, Codable, Sendable {
-  case teal, ultramarine, oxide, violet, grass, sienna, chrome
-
-  /// sRGB hex, from the design system's section palette.
-  public var hex: UInt32 {
-    switch self {
-    case .teal: 0x2F7F7A
-    case .ultramarine: 0x2C3F9E
-    case .oxide: 0xD1612F
-    case .violet: 0x6E4AA0
-    case .grass: 0x5F9A4A
-    case .sienna: 0x8A5A3B
-    case .chrome: 0xE3B72B
-    }
-  }
-}
-
-public struct StageRecord: Codable, Hashable, Identifiable, Sendable {
-  public var id: UUID
-  public var name: String?
-  public var ink: Ink?
-  /// 1–9, unique across records.
-  public var slot: Int?
-  /// The stage's window IDs as last seen.
-  public var windowIDs: Set<UInt32>
-  public var lastActive: Date?
-  public var createdAt: Date
-
-  public init(id: UUID = UUID(), name: String? = nil, ink: Ink? = nil, slot: Int? = nil,
-              windowIDs: Set<UInt32>, lastActive: Date? = nil, createdAt: Date = Date()) {
-    self.id = id; self.name = name; self.ink = ink; self.slot = slot
-    self.windowIDs = windowIDs; self.lastActive = lastActive; self.createdAt = createdAt
-  }
-
-  /// Named, inked or slotted: something the person chose, so never pruned automatically.
-  public var isCustomised: Bool { name != nil || ink != nil || slot != nil }
-}
-
-/// A stage from the latest snapshot, with the record it was matched to.
-public struct IdentifiedStage: Hashable, Identifiable, Sendable {
-  public var record: StageRecord
-  public var stage: Stage
-  public var id: UUID { record.id }
-}
-
-public enum StageMatcher {
-  public static let threshold = 0.3
-
-  public static func jaccard(_ a: Set<UInt32>, _ b: Set<UInt32>) -> Double {
-    let union = a.union(b).count
-    return union == 0 ? 0 : Double(a.intersection(b).count) / Double(union)
-  }
-
-  /// Assigns each stage (by index) at most one record and each record at most one stage,
-  /// highest Jaccard overlap on window IDs first. Pairs below `threshold` stay unmatched.
-  public static func match(stages: [Set<UInt32>], records: [StageRecord]) -> [Int: UUID] {
-    var pairs: [(score: Double, stage: Int, record: UUID)] = []
-    for (i, ids) in stages.enumerated() {
-      for r in records {
-        let s = jaccard(ids, r.windowIDs)
-        if s >= threshold { pairs.append((s, i, r.id)) }
-      }
-    }
-    // Ties: prefer customised, then older records, so a name survives an ambiguous moment.
-    let byID = Dictionary(uniqueKeysWithValues: records.map { ($0.id, $0) })
-    pairs.sort { a, b in
-      if a.score != b.score { return a.score > b.score }
-      let ra = byID[a.record]!, rb = byID[b.record]!
-      if ra.isCustomised != rb.isCustomised { return ra.isCustomised }
-      return ra.createdAt < rb.createdAt
-    }
-    var result: [Int: UUID] = [:]
-    var used = Set<UUID>()
-    for p in pairs where result[p.stage] == nil && !used.contains(p.record) {
-      result[p.stage] = p.record
-      used.insert(p.record)
-    }
-    return result
-  }
-}
-
-/// Stage records, matched to each committed snapshot and saved as JSON.
-///
-/// M1 scope: window-ID matching only. Fingerprint fallback, merge/split and pruning rules
-/// beyond "drop uncustomised records that aren't on screen" come in M2.
+/// Stage records, matched to each committed snapshot and saved as JSON in
+/// `~/Library/Application Support/Stages/stages.json`.
 @MainActor
 public final class StageStore {
   public private(set) var records: [UUID: StageRecord] = [:]
+  /// Why each record on screen matched, from the last `reconcile` (debug view).
+  public private(set) var lastReasons: [UUID: MatchReason] = [:]
+  /// Set when the stored window IDs belonged to an earlier boot and were discarded.
+  public private(set) var discardedStaleIDs = false
+
+  /// Uncustomised records survive this long off screen (other Spaces, short app quits).
+  public static let unnamedTTL: TimeInterval = 6 * 60 * 60
+
   private let fileURL: URL?
   private let now: () -> Date
+  private let bootTime: Date
+  /// AX document path per window ID, filled in as the app resolves them.
+  private var documents: [UInt32: String] = [:]
 
   public static var defaultDirectory: URL {
     FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -99,31 +27,68 @@ public final class StageStore {
   }
 
   /// `directory: nil` keeps everything in memory (tests).
-  public init(directory: URL? = StageStore.defaultDirectory, now: @escaping () -> Date = Date.init) {
+  public init(directory: URL? = StageStore.defaultDirectory, now: @escaping () -> Date = Date.init,
+              bootTime: Date = StageStore.systemBootTime()) {
     self.now = now
+    self.bootTime = bootTime
     self.fileURL = directory?.appendingPathComponent("stages.json")
     load()
   }
 
-  /// Match the snapshot's stages to records, creating records for new stages.
+  /// Match the snapshot's stages to records, creating, merging and reviving records as needed.
   public func reconcile(_ snapshot: StageSnapshot) -> [IdentifiedStage] {
     guard snapshot.isAvailable else { return [] }
+    let t = now()
     let stages = regroupPooled(snapshot.stages)
-    let matches = StageMatcher.match(stages: stages.map(\.windowIDs), records: Array(records.values))
-    var seen = Set<UUID>()
-    var result: [IdentifiedStage] = []
-    for (i, stage) in stages.enumerated() {
-      var record = matches[i].flatMap { records[$0] } ?? StageRecord(windowIDs: [], createdAt: now())
-      record.windowIDs = stage.windowIDs
-      if stage.position == .centre { record.lastActive = now() }
-      records[record.id] = record
-      seen.insert(record.id)
-      result.append(IdentifiedStage(record: record, stage: stage))
+    let inputs = stages.map { StageMatcher.Input(windowIDs: $0.windowIDs, fingerprint: Fingerprint(stage: $0, documents: documents)) }
+    let plan = StageMatcher.plan(stages: inputs, records: Array(records.values))
+
+    for (loser, keeper) in plan.dormant {
+      records[loser]?.state = .dormant
+      records[loser]?.mergedInto = keeper
     }
-    // Records not on screen: keep the customised ones (with their last window IDs), drop the rest.
-    for (id, r) in records where !seen.contains(id) && !r.isCustomised { records[id] = nil }
+    var result: [IdentifiedStage] = []
+    var reasons: [UUID: MatchReason] = [:]
+    for (i, stage) in stages.enumerated() {
+      let (existing, reason) = plan.assignments[i]!
+      var record = existing.flatMap { records[$0] } ?? StageRecord(windowIDs: [], createdAt: t)
+      record.windowIDs = stage.windowIDs
+      record.fingerprint = inputs[i].fingerprint
+      record.state = .active
+      record.mergedInto = nil
+      record.lastSeen = t
+      if !stage.pooled { record.membershipSeen = true }
+      if stage.position == .centre { record.lastActive = t }
+      records[record.id] = record
+      reasons[record.id] = reason
+      result.append(IdentifiedStage(record: record, stage: stage, reason: reason))
+    }
+    lastReasons = reasons
+    prune(at: t, onScreen: Set(reasons.keys))
     save()
     return result
+  }
+
+  /// Uncustomised records off screen for longer than `unnamedTTL` go; customised ones stay.
+  private func prune(at t: Date, onScreen: Set<UUID>) {
+    for (id, r) in records where !onScreen.contains(id) && !r.isCustomised && t.timeIntervalSince(r.lastSeen) > Self.unnamedTTL {
+      records[id] = nil
+    }
+    // Dangling merge links.
+    for (id, r) in records where r.mergedInto.map({ records[$0] == nil }) ?? false {
+      records[id]?.mergedInto = nil
+    }
+  }
+
+  /// Document paths found through Accessibility; used in fingerprints from the next reconcile.
+  public func attachDocuments(_ docs: [UInt32: String]) {
+    guard !docs.isEmpty else { return }
+    documents.merge(docs) { _, new in new }
+    for (id, r) in records {
+      let found = r.windowIDs.compactMap { documents[$0] }
+      if !found.isEmpty { records[id]?.fingerprint.documents.formUnion(found) }
+    }
+    save()
   }
 
   /// The reader can't see which overflow windows share a stage (they're all parked at one spot),
@@ -131,13 +96,19 @@ public final class StageStore {
   /// where its members were visible: windows a record knew as one stage go back together.
   func regroupPooled(_ stages: [Stage]) -> [Stage] {
     var owner: [UInt32: UUID] = [:]
-    for r in records.values.sorted(by: { ($0.lastActive ?? $0.createdAt) < ($1.lastActive ?? $1.createdAt) }) {
+    let live = records.values.filter { $0.state == .active && $0.membershipSeen }
+    for r in live.sorted(by: { ($0.lastActive ?? $0.createdAt) < ($1.lastActive ?? $1.createdAt) }) {
       for id in r.windowIDs { owner[id] = r.id }   // most recently active record wins a shared ID
     }
     var result: [Stage] = []
-    var merged: [UUID: Int] = [:]   // record id -> index in result
+    var merged: [String: Int] = [:]   // record id or pool hint -> index in result
     for s in stages {
-      guard s.pooled, let wid = s.windows.first?.id, let rid = owner[wid] else { result.append(s); continue }
+      guard s.pooled, let wid = s.windows.first?.id else { result.append(s); continue }
+      // History first; without it, the reader's hint (same app, under All at Once).
+      guard let key = owner[wid].map({ "record:\($0)" }) ?? s.poolHint.map({ "hint:\($0)" }) else {
+        result.append(s); continue
+      }
+      let rid = key
       if let i = merged[rid] {
         result[i].windows = (result[i].windows + s.windows).sorted { $0.z < $1.z }
         result[i].frame = result[i].frame.union(s.frame)
@@ -154,6 +125,8 @@ public final class StageStore {
     }
     return result
   }
+
+  // MARK: Editing
 
   public func rename(_ id: UUID, to name: String?) {
     let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -181,7 +154,9 @@ public final class StageStore {
   // MARK: Persistence
 
   private struct File: Codable {
-    var version = 1
+    var version: Int
+    /// Window IDs are only meaningful within one boot.
+    var bootTime: Date?
     var records: [StageRecord]
   }
 
@@ -189,17 +164,29 @@ public final class StageStore {
     guard let fileURL, let data = try? Data(contentsOf: fileURL),
           let file = try? Self.decoder.decode(File.self, from: data) else { return }
     records = Dictionary(uniqueKeysWithValues: file.records.map { ($0.id, $0) })
+    // After a reboot window IDs restart and can collide with old ones: match by fingerprint only.
+    if let stored = file.bootTime, abs(stored.timeIntervalSince(bootTime)) > 2 {
+      for id in records.keys { records[id]?.windowIDs = [] }
+      discardedStaleIDs = true
+    }
   }
 
   private func save() {
     guard let fileURL else { return }
-    let file = File(records: records.values.sorted { $0.createdAt < $1.createdAt })
+    let file = File(version: 2, bootTime: bootTime, records: records.values.sorted { $0.createdAt < $1.createdAt })
     do {
       try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
       try Self.encoder.encode(file).write(to: fileURL, options: .atomic)
     } catch {
       NSLog("Stages: couldn't save \(fileURL.path): \(error)")
     }
+  }
+
+  public static func systemBootTime() -> Date {
+    var tv = timeval()
+    var size = MemoryLayout<timeval>.size
+    guard sysctlbyname("kern.boottime", &tv, &size, nil, 0) == 0 else { return .distantPast }
+    return Date(timeIntervalSince1970: Double(tv.tv_sec) + Double(tv.tv_usec) / 1_000_000)
   }
 
   private static let encoder: JSONEncoder = {
