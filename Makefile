@@ -10,7 +10,7 @@ project:
 	cd App && xcodegen generate --quiet
 
 app: project
-	xcodebuild -project App/Stages.xcodeproj -scheme Stages -configuration Debug -derivedDataPath $(DERIVED) -quiet build
+	xcodebuild -project App/Stages.xcodeproj -scheme Stages -configuration Debug -destination 'platform=macOS,arch=arm64' -derivedDataPath $(DERIVED) -quiet build
 
 run: app
 	-pkill -x Stages && sleep 0.5
