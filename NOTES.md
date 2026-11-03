@@ -34,6 +34,8 @@ Machine: MacBook, single 1470×956 display, macOS 27.2 (26B123), Xcode 26.3 / SD
 | Without Screen Recording, `kCGWindowName` is nil for other apps' windows, overlays included, so stages can't be read. The reader reports `noScreenRecording`. | verified 2026-11-03 (fixture `no-screen-recording`) |
 | `GloballyEnabled` is readable from a non-sandboxed process via `CFPreferencesCopyAppValue`. | verified 2026-11-03 |
 
+| An ad-hoc signed app's TCC grant (Screen Recording) is tied to its code hash, so each rebuild may need re-granting. A stable signing identity avoids it. | **assumed** |
+
 ## Performance
 
 - 2026-11-03, release build of `stagesctl watch`: 0.84 % of one core over the first 30 s (fast

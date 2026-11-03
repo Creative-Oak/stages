@@ -8,6 +8,8 @@ CGWindowList / AX APIs; see `NOTES.md` for every Stage Manager behaviour this re
 
 - `Sources/StageReader` contains the pure rules: `WindowCapture -> StageSnapshot`, plus the stability gate. All Stage-Manager-specific constants live here.
 - `Sources/WindowSource` covers live CGWindowList capture and `StagePoller` (adaptive polling + activation notifications).
+- `Sources/StageStore` holds stage records (name, ink, slot) matched to snapshots by window IDs, saved to `~/Library/Application Support/Stages/stages.json`.
+- `App/` is the menu-bar app (`App/project.yml` → XcodeGen; sources in `App/Stages/`). Native AppKit/SwiftUI controls, with the design system's type, inks and rules.
 - `Sources/stagesctl` is the debug CLI: record fixtures, read live or recorded captures, watch.
 - `Tests/StageReaderTests` holds the reader tests; recorded fixtures are in `Fixtures/`.
 - `tools/probe.swift` is the original standalone probe, kept as a debugging tool.
@@ -17,8 +19,16 @@ CGWindowList / AX APIs; see `NOTES.md` for every Stage Manager behaviour this re
 Always use the Xcode toolchain (`xcodebuild` / `xcrun`), never a bare `swift` from `PATH`.
 
 ```bash
-xcodebuild test -scheme Stages-Package -destination 'platform=macOS,arch=arm64'
+make test      # package tests (xcodebuild, at the repo root)
 ```
+
+```bash
+make run       # generate the Xcode project, build Stages.app, (re)launch it
+```
+
+The app needs its own Screen Recording grant (separate from your terminal's). It's ad-hoc
+signed, so macOS may forget that grant after a rebuild; if stages stop appearing, toggle Stages
+off and on in Privacy & Security → Screen & System Audio Recording.
 
 ```bash
 xcrun swift run stagesctl read          # explain the current stages

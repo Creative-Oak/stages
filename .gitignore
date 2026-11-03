@@ -3,3 +3,5 @@
 DerivedData/
 *.xcodeproj/xcuserdata/
 .DS_Store
+build/
+App/Stages.xcodeproj/

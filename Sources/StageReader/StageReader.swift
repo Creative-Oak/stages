@@ -48,6 +48,12 @@ public struct StageWindow: Codable, Hashable, Sendable {
   public var overlayID: UInt32?
   /// Front-to-back order across the whole window list.
   public var z: Int
+
+  public init(id: UInt32, pid: Int32, owner: String, bundleID: String?, title: String?, frame: Rect,
+              overlayID: UInt32?, z: Int) {
+    self.id = id; self.pid = pid; self.owner = owner; self.bundleID = bundleID; self.title = title
+    self.frame = frame; self.overlayID = overlayID; self.z = z
+  }
 }
 
 public struct Stage: Codable, Hashable, Sendable {
@@ -63,6 +69,11 @@ public struct Stage: Codable, Hashable, Sendable {
   public var frame: Rect
   /// Number of "App Icon Window" badges on the tile; nil for the centre stage.
   public var appIconCount: Int?
+
+  public init(position: Position, order: Int, displayID: UInt32, windows: [StageWindow], frame: Rect, appIconCount: Int?) {
+    self.position = position; self.order = order; self.displayID = displayID
+    self.windows = windows; self.frame = frame; self.appIconCount = appIconCount
+  }
 
   public var windowIDs: Set<UInt32> { Set(windows.map(\.id)) }
   /// Distinct apps, front-to-back.
@@ -108,6 +119,8 @@ public struct Diagnostics: Codable, Hashable, Sendable {
   public var confidence: Confidence = .high
   /// Why confidence is low (empty when high).
   public var concerns: [String] = []
+
+  public init() {}
 }
 
 public struct StageSnapshot: Codable, Hashable, Sendable {
@@ -132,6 +145,11 @@ public struct StageSnapshot: Codable, Hashable, Sendable {
   /// Sizes of every overlay, matched or not, sorted. Part of the signature so that two
   /// mid-animation reads that happen to agree on membership still differ.
   public var overlaySizes: [String] = []
+
+  public init(capturedAt: Date, unavailable: Unavailable?, stages: [Stage], diagnostics: Diagnostics, overlaySizes: [String] = []) {
+    self.capturedAt = capturedAt; self.unavailable = unavailable; self.stages = stages
+    self.diagnostics = diagnostics; self.overlaySizes = overlaySizes
+  }
 
   public var isAvailable: Bool { unavailable == nil }
   public var centre: [Stage] { stages.filter { $0.position == .centre } }

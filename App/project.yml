@@ -1,0 +1,53 @@
+name: Stages
+options:
+  bundleIdPrefix: dk.creativeoak
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+packages:
+  StagesKit:
+    path: ..
+targets:
+  StagesApp:
+    type: application
+    platform: macOS
+    sources: [Stages]
+    dependencies:
+      - package: StagesKit
+        product: StageReader
+      - package: StagesKit
+        product: WindowSource
+      - package: StagesKit
+        product: StageStore
+    info:
+      path: Stages/Info.plist
+      properties:
+        CFBundleName: Stages
+        CFBundleDisplayName: Stages
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSUIElement: true
+        LSMinimumSystemVersion: "26.0"
+        NSHumanReadableCopyright: "Magnus Høholt Kaspersen"
+    settings:
+      base:
+        PRODUCT_NAME: Stages
+        PRODUCT_BUNDLE_IDENTIFIER: dk.creativeoak.stages
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "6.0"
+        SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+        # Not sandboxed: needs CGWindowList titles, AX and event taps. Ad-hoc signed for now.
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: NO
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        DEVELOPMENT_TEAM: ""
+        COMBINE_HIDPI_IMAGES: YES
+schemes:
+  Stages:
+    build:
+      targets:
+        StagesApp: all
+    run:
+      config: Debug
