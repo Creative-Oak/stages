@@ -34,7 +34,7 @@ Machine: MacBook, single 1470×956 display, macOS 27.2 (26B123), Xcode 26.3 / SD
 | Without Screen Recording, `kCGWindowName` is nil for other apps' windows, overlays included, so stages can't be read. The reader reports `noScreenRecording`. | verified 2026-11-03 (fixture `no-screen-recording`) |
 | `GloballyEnabled` is readable from a non-sandboxed process via `CFPreferencesCopyAppValue`. | verified 2026-11-03 |
 
-| An ad-hoc signed app's TCC grant (Screen Recording) is tied to its code hash, so each rebuild may need re-granting. A stable signing identity avoids it. | **assumed** |
+| An ad-hoc signed app's designated requirement is its cdhash (`cdhash H"2894…"`), so each rebuild is a different app to TCC. Signed with the local identity it is `identifier "dk.creativeoak.stages" and certificate root = H"6b8d…"`, unchanged across rebuilds. | requirement: verified 2026-11-03 (`codesign -d -r-` before/after two rebuilds). Grant surviving a rebuild: **to verify** |
 
 ## Performance
 

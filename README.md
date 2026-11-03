@@ -26,9 +26,31 @@ make test      # package tests (xcodebuild, at the repo root)
 make run       # generate the Xcode project, build Stages.app, (re)launch it
 ```
 
-The app needs its own Screen Recording grant (separate from your terminal's). It's ad-hoc
-signed, so macOS may forget that grant after a rebuild; if stages stop appearing, toggle Stages
-off and on in Privacy & Security → Screen & System Audio Recording.
+The app needs its own Screen Recording grant (separate from your terminal's).
+
+### Signing
+
+Builds are signed with a local self-signed identity, "Stages Local Signing" (no Apple account
+involved; Developer ID comes later). That makes the designated requirement certificate-based,
+so macOS keeps Stages' Screen Recording and Accessibility grants across rebuilds. On a new Mac:
+
+```bash
+sh tools/make-signing-identity.sh
+```
+
+The first build afterwards asks for keychain access for `codesign`: choose Always Allow.
+`make app` prints the designated requirement; it should end in `certificate root = H"…"`. If
+grants got confused by older ad-hoc builds, clear them once and grant again:
+
+```bash
+tccutil reset ScreenCapture dk.creativeoak.stages
+```
+
+The app logs one line per committed snapshot (counts only, no titles):
+
+```bash
+/usr/bin/log show --last 5m --predicate 'subsystem == "dk.creativeoak.stages"' --style compact
+```
 
 ```bash
 xcrun swift run stagesctl read          # explain the current stages

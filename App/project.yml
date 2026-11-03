@@ -37,11 +37,15 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "6.0"
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
-        # Not sandboxed: needs CGWindowList titles, AX and event taps. Ad-hoc signed for now.
+        # Not sandboxed: needs CGWindowList titles, AX and event taps.
+        # Signed with a local self-signed identity ("Stages Local Signing", see README) so the
+        # designated requirement, and with it the Screen Recording / Accessibility grants,
+        # survives rebuilds. Developer ID comes later.
         ENABLE_APP_SANDBOX: NO
         ENABLE_HARDENED_RUNTIME: NO
         CODE_SIGN_STYLE: Manual
-        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_IDENTITY: "Stages Local Signing"
+        OTHER_CODE_SIGN_FLAGS: "--timestamp=none"
         DEVELOPMENT_TEAM: ""
         COMBINE_HIDPI_IMAGES: YES
 schemes:

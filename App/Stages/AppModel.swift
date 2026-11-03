@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+import os
 import StageReader
 import StageStore
 import WindowSource
@@ -29,7 +30,16 @@ final class AppModel {
   private func apply(_ snapshot: StageSnapshot) {
     self.snapshot = snapshot
     stages = store.reconcile(snapshot)
+    // Counts only: window titles stay out of the system log.
+    if let reason = snapshot.unavailable {
+      Self.log.notice("committed: unavailable \(reason.rawValue, privacy: .public)")
+    } else {
+      let d = snapshot.diagnostics
+      Self.log.notice("committed: \(snapshot.stages.count) stages, \(d.overlayCount) overlays, confidence \(d.confidence.rawValue, privacy: .public)")
+    }
   }
+
+  @ObservationIgnored private static let log = Logger(subsystem: "dk.creativeoak.stages", category: "stages")
 
   // MARK: Actions
 

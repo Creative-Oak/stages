@@ -3,6 +3,8 @@
 # root holds only Package.swift, so `xcodebuild` there sees the package (and its tests).
 DERIVED := build/DerivedData
 APP := $(DERIVED)/Build/Products/Debug/Stages.app
+# Local self-signed identity (README → Signing). Keeps TCC grants stable across rebuilds.
+IDENTITY := Stages Local Signing
 
 .PHONY: project app run test clean
 
@@ -11,9 +13,13 @@ project:
 
 app: project
 	xcodebuild -project App/Stages.xcodeproj -scheme Stages -configuration Debug -destination 'platform=macOS,arch=arm64' -derivedDataPath $(DERIVED) -quiet build
+	@# If Xcode fell back to ad-hoc, re-sign so the designated requirement stays certificate-based.
+	@codesign -d -r- $(APP) 2>&1 | grep -q "certificate root" || \
+	  codesign --force --deep --timestamp=none --sign "$(IDENTITY)" $(APP)
+	@codesign -d -r- $(APP) 2>&1 | grep "designated"
 
 run: app
-	-pkill -x Stages && sleep 0.5
+	-pkill -x Stages; while pgrep -x Stages >/dev/null; do sleep 0.1; done
 	open $(APP)
 
 test:

@@ -38,7 +38,9 @@ enum Permissions {
   static func relaunch() {
     let task = Process()
     task.executableURL = URL(fileURLWithPath: "/bin/sh")
-    task.arguments = ["-c", "sleep 0.5; /usr/bin/open \"$0\"", Bundle.main.bundlePath]
+    // Wait for this process to exit first; `open` on a still-quitting app just re-activates it.
+    task.arguments = ["-c", "while /bin/kill -0 \"$1\" 2>/dev/null; do sleep 0.1; done; /usr/bin/open \"$0\"",
+                      Bundle.main.bundlePath, String(ProcessInfo.processInfo.processIdentifier)]
     try? task.run()
     NSApp.terminate(nil)
   }
