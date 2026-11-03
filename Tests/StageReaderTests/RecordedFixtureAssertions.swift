@@ -83,3 +83,23 @@ import Testing
     #expect(try read("stage-manager-off").unavailable == .stageManagerOff)
   }
 }
+
+@Suite struct TouchingTilesTests {
+  @Test func touchingTilesAreSeparateStages() throws {
+    // Signal ends at y 667, Claude starts at 666; Mail touches a parked Finder thumbnail by 1 pt.
+    let f = try RecordedFixtureTests.fixture("curious")
+    for frame in f.frames {
+      let s = StageReader.read(frame)
+      #expect(s.stages(.strip).map(\.owners) == [["Safari"], ["Mail"], ["Signal"], ["Claude"]])
+      #expect(s.stages(.overflow).map(\.owners) == [["Finder"], ["Finder"], ["Finder"], ["Calendar"], ["Maps"], ["Notes"]])
+    }
+  }
+
+  @Test func groupedOverflowFansAroundTheAnchor() throws {
+    // Finder's three-window stage in overflow: same vertical centre, right edges offset by 16.
+    let s = StageReader.read(try RecordedFixtureTests.fixture("curious").frames[0])
+    let finder = s.stages(.overflow).filter { $0.owners == ["Finder"] }.map(\.frame)
+    #expect(Set(finder.map(\.midY)) == [434.5])
+    #expect(Set(finder.map(\.maxX)) == [-300, -284, -268])
+  }
+}

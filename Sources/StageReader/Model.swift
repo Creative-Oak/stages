@@ -25,6 +25,10 @@ public struct Rect: Codable, Hashable, Sendable, CustomStringConvertible {
     min(maxX, o.maxX) > max(minX, o.minX) && min(maxY, o.maxY) > max(minY, o.minY)
   }
 
+  public func intersectionArea(_ o: Rect) -> Double {
+    max(0, min(maxX, o.maxX) - max(minX, o.minX)) * max(0, min(maxY, o.maxY) - max(minY, o.minY))
+  }
+
   public func contains(x px: Double, y py: Double) -> Bool {
     px >= minX && px < maxX && py >= minY && py < maxY
   }

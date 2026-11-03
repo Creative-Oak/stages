@@ -232,3 +232,15 @@ import Testing
     #expect(s.diagnostics.confidence == .high, "\(s.diagnostics.concerns)")
   }
 }
+
+@Suite struct GroupOverlapTests {
+  @Test func onePointContactDoesNotGroup() {
+    var scene = Scene()
+    scene.wmNoise()
+    scene.stageWindow("Ghostty", "~", Rect(x: 8, y: 41, w: 1454, h: 907), strip: false)
+    scene.stageWindow("Signal", "Signal", Rect(x: -269, y: 506, w: 154, h: 161), strip: true)
+    scene.stageWindow("Claude", "Claude", Rect(x: -269, y: 666, w: 197, h: 188), strip: true)
+    let s = StageReader.read(scene.capture)
+    #expect(s.stages(.strip).map(\.owners) == [["Signal"], ["Claude"]])
+  }
+}

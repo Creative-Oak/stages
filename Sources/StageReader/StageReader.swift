@@ -23,6 +23,9 @@ public enum StageManagerConstants {
   public static let matchTolerance = 4.0
   /// A strip component whose left edge is more than this left of the strip column is overflow.
   public static let stripColumnTolerance = 24.0
+  /// Two thumbnails belong to one grouped tile only if they overlap by at least this share of
+  /// the smaller one. Grouped tiles overlap ≥ 70 %; neighbouring tiles touch by ~1 pt.
+  public static let groupOverlapRatio = 0.25
   public static let minWindowSide = 40.0
 
   /// Processes whose windows are never stage members.
@@ -272,15 +275,18 @@ public enum StageReader {
                             frame: frame, appIconCount: nil))
       }
 
-      // 4. Strip stages = connected components of intersecting layer-19 overlays.
+      // 4. Strip stages = connected components of substantially overlapping layer-19 overlays.
       let strip = here.filter { overlayOf[$0.id]!.layer == C.stripLayer }
+      func grouped(_ a: Rect, _ b: Rect) -> Bool {
+        a.intersectionArea(b) >= C.groupOverlapRatio * min(a.area, b.area)
+      }
       for w in here where ![C.centreLayer, C.stripLayer].contains(overlayOf[w.id]!.layer) {
         diag.concerns.append("window #\(w.id) matched an overlay on unexpected layer \(overlayOf[w.id]!.layer)")
       }
       var parent = Array(strip.indices)
       func root(_ i: Int) -> Int { var i = i; while parent[i] != i { i = parent[i] }; return i }
       for i in strip.indices {
-        for j in strip.indices where j > i && overlayOf[strip[i].id]!.bounds.overlaps(overlayOf[strip[j].id]!.bounds) {
+        for j in strip.indices where j > i && grouped(overlayOf[strip[i].id]!.bounds, overlayOf[strip[j].id]!.bounds) {
           parent[root(j)] = root(i)
         }
       }
