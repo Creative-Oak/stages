@@ -345,3 +345,16 @@ import Testing
     #expect(s.stages(.strip).last?.windowIDs == [mail, notes])
   }
 }
+
+@Suite struct StackedMissingFromTileTests {
+  @Test func aStackedWindowMissingFromTheTileListIsNotOverflow() {
+    var (scene, safari, _, maps) = StripTileTests().scene()
+    // Mid-switch the tile lists only two of the three Safari windows.
+    scene.stripTiles![0].windowIDs = [safari[0], safari[1]]
+    var c = scene.capture
+    c.appWindowGroupingBehavior = 0
+    let s = StageReader.read(c)
+    #expect(s.stages(.overflow).map(\.windowIDs) == [[maps]])
+    #expect(s.stages(.strip).filter { $0.owners == ["Safari"] }.count == 3)
+  }
+}

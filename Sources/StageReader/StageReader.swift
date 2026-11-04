@@ -333,9 +333,20 @@ public enum StageReader {
         // (verified by raising a back window of a three-window Safari tile). So a single-app tile
         // with several windows is one stage per window. Under "All at Once" it's one stage.
         let oneAtATime = capture.appWindowGroupingBehavior == 0
+        // A strip window no tile lists but whose thumbnail lies inside a tile is stacked behind
+        // that tile (its list can briefly miss it mid-switch); overflow thumbnails are parked
+        // away from the tiles.
+        var extra: [Int: [RawWindow]] = [:]
+        let sortedTiles = tilesHere.sorted(by: { ($0.frame.minY, $0.frame.minX) < ($1.frame.minY, $1.frame.minX) })
+        for w in strip where !tileIDs.contains(w.id) {
+          let b = overlayOf[w.id]!.bounds
+          if let i = sortedTiles.firstIndex(where: { $0.frame.intersectionArea(b) >= C.groupOverlapRatio * b.area }) {
+            extra[i, default: []].append(w)
+          }
+        }
         var order = 0
-        for t in tilesHere.sorted(by: { ($0.frame.minY, $0.frame.minX) < ($1.frame.minY, $1.frame.minX) }) {
-          let ws = t.windowIDs.compactMap { candidateByID[$0] }.sorted { $0.z < $1.z }
+        for (ti, t) in sortedTiles.enumerated() {
+          let ws = (t.windowIDs.compactMap { candidateByID[$0] } + (extra[ti] ?? [])).sorted { $0.z < $1.z }
           guard !ws.isEmpty else {
             diag.concerns.append("strip tile “\(t.title ?? "?")” lists no window in the capture")
             continue
@@ -352,7 +363,8 @@ public enum StageReader {
             order += 1
           }
         }
-        let pool = strip.filter { !tileIDs.contains($0.id) }.sorted { $0.z < $1.z }
+        let stacked = Set(extra.values.flatMap { $0.map(\.id) })
+        let pool = strip.filter { !tileIDs.contains($0.id) && !stacked.contains($0.id) }.sorted { $0.z < $1.z }
         for (i, w) in pool.enumerated() {
           stages.append(Stage(position: .overflow, order: i, displayID: d.id, windows: [stageWindow(w)],
                               frame: overlayOf[w.id]!.bounds, appIconCount: nil, pooled: true))

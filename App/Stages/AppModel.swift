@@ -365,7 +365,10 @@ final class AppModel {
         guard self.switchGeneration == generation else { return }
         let inOneStage = self.stages.filter { s in s.stage.windows.contains { $0.pid == window.pid } }.count <= 1
         self.awaitingActivation = (window.pid, started)
-        let outcome = await StageActivator.raise(window, appInOneStage: inOneStage)
+        // Same-titled windows of this app in front of the target (z-order), to pick the right AX window.
+        let rank = self.stages.flatMap(\.stage.windows)
+          .filter { $0.pid == window.pid && $0.title == window.title && $0.z < window.z }.count
+        let outcome = await StageActivator.raise(window, appInOneStage: inOneStage, sameTitleRank: rank)
         Self.log.notice("switch: raise took \(Self.ms(ContinuousClock.now - started)) ms (attempt \(attempt))")
         switch outcome {
         case .notTrusted:

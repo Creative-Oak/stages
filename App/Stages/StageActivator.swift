@@ -49,12 +49,15 @@ nonisolated enum StageActivator {
   /// Raise `window` (the stage's most recent one) and activate its app. When the app has windows
   /// in no other stage, it's made frontmost first, so keyboard focus moves before the (slower)
   /// window raise, as with ⌘⇥; otherwise the window is raised first so Stage Manager brings the
-  /// right one of the app's stages.
-  static func raise(_ window: StageWindow, appInOneStage: Bool) async -> Outcome {
-    await Task.detached(priority: .userInitiated) { raiseNow(window, frontmostFirst: appInOneStage) }.value
+  /// right one of the app's stages. `sameTitleRank`: how many of the app's windows with the same
+  /// title are in front of this one.
+  static func raise(_ window: StageWindow, appInOneStage: Bool, sameTitleRank: Int = 0) async -> Outcome {
+    await Task.detached(priority: .userInitiated) {
+      raiseNow(window, frontmostFirst: appInOneStage, sameTitleRank: sameTitleRank)
+    }.value
   }
 
-  private static func raiseNow(_ window: StageWindow, frontmostFirst: Bool) -> Outcome {
+  private static func raiseNow(_ window: StageWindow, frontmostFirst: Bool, sameTitleRank: Int) -> Outcome {
     guard AXIsProcessTrusted() else { return .notTrusted }
     let app = AXUIElementCreateApplication(window.pid)
     AXUIElementSetMessagingTimeout(app, 0.5)
@@ -62,12 +65,13 @@ nonisolated enum StageActivator {
     if frontmostFirst {
       frontmost = AXUIElementSetAttributeValue(app, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
     }
-    var target = cache.withLock { $0[key(window)] }?.element
+    // A duplicate title makes the cache key ambiguous: look it up fresh by rank instead.
+    var target = sameTitleRank == 0 ? cache.withLock { $0[key(window)] }?.element : nil
     if let t = target, AXUIElementPerformAction(t, kAXRaiseAction as CFString) != .success {
       cache.withLock { $0[key(window)] = nil }   // stale (window closed or re-created)
       target = nil
     }
-    if target == nil, let found = axWindow(in: app, matching: window) {
+    if target == nil, let found = axWindow(in: app, matching: window, sameTitleRank: sameTitleRank) {
       AXUIElementPerformAction(found, kAXRaiseAction as CFString)
       let box = AXUIElementBox(found)
       cache.withLock { $0[key(window)] = box }
@@ -85,15 +89,18 @@ nonisolated enum StageActivator {
     return target == nil ? .appOnly : .raised
   }
 
-  /// The AX window with the same title; among several, the one whose frame matches (only true
-  /// for centre windows: strip thumbnails are scaled in CG but not in AX).
-  private static func axWindow(in app: AXUIElement, matching w: StageWindow) -> AXUIElement? {
+  /// The AX window with the same title. Several windows can share a title (two "Start Page"
+  /// tabs) and even a frame (stacked app windows all report their centre frame), and AX exposes
+  /// no CG window number. Both lists are front-to-back, so among same-titled windows the n-th AX
+  /// window is the n-th CG window (`sameTitleRank`, from the capture's z-order).
+  private static func axWindow(in app: AXUIElement, matching w: StageWindow, sameTitleRank: Int = 0) -> AXUIElement? {
     var value: CFTypeRef?
     guard AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &value) == .success,
           let windows = value as? [AXUIElement], !windows.isEmpty else { return nil }
     let titled = windows.filter { title(of: $0) == w.title }
     if titled.count <= 1 { return titled.first }
-    return titled.first { frame(of: $0).map { near($0, w.frame) } ?? false } ?? titled.first
+    if let exact = titled.filter({ frame(of: $0).map { near($0, w.frame) } ?? false }).first, sameTitleRank == 0 { return exact }
+    return titled.indices.contains(sameTitleRank) ? titled[sameTitleRank] : titled.first
   }
 
   private static func title(of el: AXUIElement) -> String? {
