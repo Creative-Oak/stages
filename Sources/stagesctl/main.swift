@@ -4,6 +4,7 @@
 //   stagesctl watch                                      print each committed snapshot + poll cost
 //   stagesctl record <name> --note "…" [--frames N] [--interval ms] [--delay s] [--out dir] [--keep-titles]
 //   stagesctl tiles                                      list WindowManager's strip tiles (AX)
+//   stagesctl tile <n> focus-add                         AXFocused on tile n, then AXAddToStage
 //   stagesctl tile <n> press|add|click|shift-click       AXPress / AXAddToStage / a synthetic
 //                                                        click or Shift-click on tile n (M6 spike)
 //   stagesctl gestures                                   spike: print the gesture events a global
@@ -241,6 +242,20 @@ case "tiles", "tile":
     Thread.sleep(forTimeInterval: 0.3)
     move(back)
     print("\(withShift ? "Shift-clicked" : "Clicked") \"\(shown[n - 1].title)\" at \(Int(p.x)),\(Int(p.y)) \(f)")
+    break
+  }
+  if args[1] == "focus-add" {
+    // VoiceOver acts on the element it has focused; try the same: focus the strip, then the tile.
+    let t = tiles[n - 1]
+    var parent: CFTypeRef?
+    AXUIElementCopyAttributeValue(t.element, kAXParentAttribute as CFString, &parent)
+    if let list = parent { AXUIElementSetAttributeValue(list as! AXUIElement, kAXFocusedAttribute as CFString, kCFBooleanTrue) }
+    let focus = AXUIElementSetAttributeValue(t.element, kAXFocusedAttribute as CFString, kCFBooleanTrue)
+    var focused: CFTypeRef?
+    AXUIElementCopyAttributeValue(t.element, kAXFocusedAttribute as CFString, &focused)
+    Thread.sleep(forTimeInterval: 0.2)
+    let err = AXUIElementPerformAction(t.element, "AXAddToStage" as CFString)
+    print("focus: \(focus == .success ? "ok" : "AX error \(focus.rawValue)") (focused now: \(focused as? Bool ?? false)); AXAddToStage on \"\(t.title)\": \(err == .success ? "ok" : "AX error \(err.rawValue)")")
     break
   }
   let action = args[1] == "add" ? "AXAddToStage" : args[1] == "press" ? "AXPress" : args[1]

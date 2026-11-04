@@ -214,6 +214,9 @@ final class AppModel {
   /// stage; the first one to appear takes the name back.
   func wake(_ id: UUID) {
     guard let record = store.records[id] else { return }
+    guard record.wakeRecipe.apps.count == 1 else {
+      return report("\(record.name ?? "That stage") has \(record.wakeRecipe.apps.count) apps; Stages can only wake single-app stages, since Stage Manager would split the rest into separate stages.")
+    }
     store.expectWake(id)
     wakeNote = "Waking \(record.name ?? "stage")…"
     poller.poke()
@@ -224,9 +227,6 @@ final class AppModel {
       var note = result.apps.isEmpty ? "Couldn't wake \(record.name ?? "the stage")." :
         "Woke \(record.name ?? "stage"): \(result.apps.joined(separator: ", "))" +
         (result.documents > 0 ? ", \(result.documents) document\(result.documents == 1 ? "" : "s")." : ".")
-      if result.apps.count > 1 {
-        note += " Each app opened as its own stage: Shift-click their tiles in the strip to group them again."
-      }
       if !result.problems.isEmpty { note += " " + result.problems.joined(separator: "; ") + "." }
       self.wakeNote = note
       try? await Task.sleep(for: .seconds(20))

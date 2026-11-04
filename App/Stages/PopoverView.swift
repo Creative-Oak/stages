@@ -366,7 +366,11 @@ struct SleepingRow: View {
               }
             }
           }
-          Button("Wake") { model.wake(record.id) }.controlSize(.small)
+          // Only a single-app stage can be woken as itself: Stage Manager would put each app of a
+          // multi-app stage in its own stage, and there's no public way to group them again.
+          if record.wakeRecipe.apps.count == 1 {
+            Button("Wake") { model.wake(record.id) }.controlSize(.small)
+          }
         }
         let docs = record.wakeRecipe.documents.count, apps = record.wakeRecipe.apps.count
         Text(docs == 0 ? "\(apps) app\(apps == 1 ? "" : "s"), no documents recorded"

@@ -1,10 +1,10 @@
 import AppKit
 import StageStore
 
-/// Wakes a sleeping stage from its recipe: relaunch its apps and reopen its documents (file
-/// paths and web pages, each with an app from the recipe that can open it). Stage Manager puts
-/// each app in its own stage; grouping them again is a Shift-click Stages doesn't fake (it
-/// never moves the pointer).
+/// Wakes a sleeping single-app stage from its recipe: relaunch the app and reopen its documents
+/// (file paths and web pages). Multi-app stages aren't woken: Stage Manager would put each app in
+/// its own stage, and the only way to regroup them is a pointer Shift-click, which Stages never
+/// fakes.
 enum StageWaker {
   struct Result {
     var apps: [String] = []        // app names, as launched

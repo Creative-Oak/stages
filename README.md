@@ -41,7 +41,7 @@ Bind these as Raycast Quicklinks (e.g. Hyper+1…9). Errors beep and show in the
 | `stages://name?value=Lodestone` | name the current stage (empty value clears) |
 | `stages://ink?value=teal` | ink the current stage (`none` clears): teal, ultramarine, oxide, violet, grass, sienna, chrome |
 | `stages://slot?value=3` | give the current stage slot 3 (`none` clears) |
-| `stages://wake?name=Reading` | wake a sleeping stage (relaunch its apps and documents) |
+| `stages://wake?name=Reading` | wake a sleeping single-app stage (relaunch the app and its documents) |
 
 `~/Library/Application Support/Stages/state.json` holds the current stages (names, inks, slots,
 apps, window titles, document paths) plus named stages that aren't open, with their last titles
@@ -50,10 +50,11 @@ and documents. It's rewritten when anything changes and never leaves the Mac.
 ### Sleeping stages
 
 A named stage whose windows have all closed stays in the popover under **Sleeping**, with its
-apps and documents (AX document paths and page URLs). **Wake** relaunches the apps and reopens
-the documents; the first stage to appear gets the name back. Stage Manager gives each app its
-own stage, and Stages doesn't regroup them: that would mean moving your pointer to Shift-click
-the strip, which Stages never does. Right-click a sleeping stage to forget it.
+apps and documents (AX document paths and page URLs; also in `state.json`). A single-app stage
+can be woken: **Wake** relaunches the app and reopens its documents, and the stage gets its name
+back. Multi-app stages can't be woken: Stage Manager would split them into one stage per app,
+and the only way to regroup them is a pointer Shift-click, which Stages never fakes. Right-click
+a sleeping stage to forget it.
 
 ### Activity log
 
