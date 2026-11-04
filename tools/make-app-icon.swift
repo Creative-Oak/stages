@@ -1,7 +1,7 @@
 // Draws Stages' app icon and writes App/Stages/Assets.xcassets/AppIcon.appiconset.
-//   xcrun swift tools/make-app-icon.swift
-// A macOS squircle on a paper ground: the centre stage as a window, the strip as three cards in
-// Lodestone inks (teal, oxide, ultramarine).
+//   xcrun swift tools/make-app-icon.swift   (or `make icon`)
+// A macOS squircle in deep ultramarine → teal; the centre stage as a frosted-glass window, the
+// strip as three tinted glass cards in Lodestone inks.
 import AppKit
 
 func color(_ hex: UInt32, _ a: CGFloat = 1) -> NSColor {
@@ -14,62 +14,76 @@ func draw(size: CGFloat) -> NSBitmapImageRep {
                              hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
   NSGraphicsContext.saveGraphicsState()
   NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-  let s = size / 1024   // design on a 1024 grid
+  NSGraphicsContext.current?.imageInterpolation = .high
+  let s = size / 1024
   func r(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat) -> NSRect { NSRect(x: x * s, y: y * s, width: w * s, height: h * s) }
-
-  // Squircle body (macOS grid: 824 pt body, 100 pt margin), with a soft shadow.
-  let body = NSBezierPath(roundedRect: r(100, 100, 824, 824), xRadius: 185 * s, yRadius: 185 * s)
-  NSGraphicsContext.saveGraphicsState()
-  let shadow = NSShadow()
-  shadow.shadowColor = NSColor.black.withAlphaComponent(0.28)
-  shadow.shadowOffset = NSSize(width: 0, height: -10 * s)
-  shadow.shadowBlurRadius = 24 * s
-  shadow.set()
-  color(0xF4F4F1).setFill()
-  body.fill()
-  NSGraphicsContext.restoreGraphicsState()
-  NSGradient(starting: color(0xFBFBFA), ending: color(0xE4E4DF))!.draw(in: body, angle: -90)
-
-  body.addClip()
-
-  func card(_ rect: NSRect, fill: NSColor, radius: CGFloat, shadowAlpha: CGFloat) {
+  func rounded(_ rect: NSRect, _ radius: CGFloat) -> NSBezierPath { NSBezierPath(roundedRect: rect, xRadius: radius * s, yRadius: radius * s) }
+  func withShadow(_ alpha: CGFloat, y: CGFloat, blur: CGFloat, _ body: () -> Void) {
     NSGraphicsContext.saveGraphicsState()
     let sh = NSShadow()
-    sh.shadowColor = NSColor.black.withAlphaComponent(shadowAlpha)
-    sh.shadowOffset = NSSize(width: 0, height: -6 * s)
-    sh.shadowBlurRadius = 18 * s
+    sh.shadowColor = NSColor.black.withAlphaComponent(alpha)
+    sh.shadowOffset = NSSize(width: 0, height: y * s)
+    sh.shadowBlurRadius = blur * s
     sh.set()
-    fill.setFill()
-    NSBezierPath(roundedRect: rect, xRadius: radius * s, yRadius: radius * s).fill()
+    body()
     NSGraphicsContext.restoreGraphicsState()
   }
 
-  // The strip: three cards on the left, slightly recessed, in inks.
-  let inks: [UInt32] = [0x2F7F7A, 0xD1612F, 0x2C3F9E]
-  for (i, ink) in inks.enumerated() {
-    let y = 640 - CGFloat(i) * 190
-    card(r(178, y, 150, 120), fill: color(ink), radius: 22, shadowAlpha: 0.22)
-    // A hint of a title bar on each thumbnail.
-    color(0xFFFFFF, 0.35).setFill()
-    NSBezierPath(roundedRect: r(192, y + 92, 60, 12), xRadius: 6 * s, yRadius: 6 * s).fill()
+  // Body: macOS grid squircle (824 pt, 100 pt margin), drop shadow, diagonal gradient.
+  let body = rounded(r(100, 100, 824, 824), 185)
+  withShadow(0.30, y: -12, blur: 28) { color(0x22379A).setFill(); body.fill() }
+  NSGradient(colors: [color(0x2C3F9E), color(0x23559F), color(0x2F7F7A)], atLocations: [0, 0.55, 1],
+             colorSpace: .sRGB)!.draw(in: body, angle: -55)
+
+  NSGraphicsContext.saveGraphicsState()
+  body.addClip()
+  // Soft sheen across the top.
+  NSGradient(colors: [NSColor.white.withAlphaComponent(0.20), NSColor.white.withAlphaComponent(0.06), NSColor.white.withAlphaComponent(0)],
+             atLocations: [0, 0.3, 0.55], colorSpace: .sRGB)!.draw(in: body, angle: -90)
+
+  // A glass card: tint fill, top-lit gradient, bright rim, inner top highlight.
+  func glass(_ rect: NSRect, radius: CGFloat, tint: NSColor, tintAlpha: CGFloat) {
+    let path = rounded(rect, radius)
+    withShadow(0.28, y: -10, blur: 26) { tint.withAlphaComponent(tintAlpha).setFill(); path.fill() }
+    NSGraphicsContext.saveGraphicsState()
+    path.addClip()
+    NSGradient(starting: NSColor.white.withAlphaComponent(0.30), ending: NSColor.white.withAlphaComponent(0.02))!.draw(in: path, angle: -90)
+    NSGraphicsContext.restoreGraphicsState()
+    NSColor.white.withAlphaComponent(0.55).setStroke()
+    let rim = rounded(rect.insetBy(dx: 1.5 * s, dy: 1.5 * s), radius - 1.5)
+    rim.lineWidth = 3 * s
+    rim.stroke()
   }
 
-  // The centre stage: a window.
-  let win = r(372, 236, 476, 552)
-  card(win, fill: color(0xFFFFFF), radius: 34, shadowAlpha: 0.30)
-  // Title bar with the three traffic lights.
-  let dots: [UInt32] = [0xFF5F57, 0xFEBC2E, 0x28C840]
-  for (i, d) in dots.enumerated() {
-    color(d).setFill()
-    NSBezierPath(ovalIn: r(408 + CGFloat(i) * 44, 728, 26, 26)).fill()
+  // The strip: three tinted glass cards, the front one a touch larger.
+  let cards: [(UInt32, CGFloat)] = [(0xE3B72B, 0), (0xD1612F, 1), (0x5F9A4A, 2)]
+  for (ink, i) in cards {
+    let y = 610 - i * 168
+    glass(r(168, y, 148, 128), radius: 30, tint: color(ink), tintAlpha: 0.92)
   }
-  color(0x0B0B0C, 0.08).setFill()
-  NSBezierPath(rect: r(372, 704, 476, 2)).fill()
-  // Content: a few hairline text lines.
-  for (i, w) in [360, 300, 330, 220].enumerated() {
-    color(0x0B0B0C, 0.12).setFill()
-    NSBezierPath(roundedRect: r(412, 640 - CGFloat(i) * 56, CGFloat(w), 18), xRadius: 9 * s, yRadius: 9 * s).fill()
+
+  // The centre stage: a frosted window.
+  let win = r(356, 214, 500, 596)
+  glass(win, radius: 48, tint: color(0xFFFFFF), tintAlpha: 0.88)
+  // Traffic lights.
+  for (i, d) in [0xFF5F57, 0xFEBC2E, 0x28C840].enumerated() {
+    color(UInt32(d)).setFill()
+    NSBezierPath(ovalIn: r(400 + CGFloat(i) * 46, 742, 28, 28)).fill()
   }
+  // Content: a header block and text lines, in the inks' ultramarine.
+  color(0x2C3F9E, 0.85).setFill()
+  rounded(r(400, 620, 210, 60), 14).fill()
+  for (i, w) in [400, 340, 372, 250].enumerated() {
+    color(0x0B0B0C, 0.16).setFill()
+    rounded(r(400, 548 - CGFloat(i) * 62, CGFloat(w), 22), 11).fill()
+  }
+  NSGraphicsContext.restoreGraphicsState()
+
+  // Rim light around the whole squircle.
+  NSColor.white.withAlphaComponent(0.18).setStroke()
+  let rim = rounded(r(102, 102, 820, 820), 183)
+  rim.lineWidth = 4 * s
+  rim.stroke()
 
   NSGraphicsContext.restoreGraphicsState()
   return rep
@@ -88,5 +102,4 @@ for pt in [16, 32, 128, 256, 512] {
 let contents: [String: Any] = ["images": images, "info": ["version": 1, "author": "xcode"]]
 try! JSONSerialization.data(withJSONObject: contents, options: [.prettyPrinted, .sortedKeys])
   .write(to: URL(fileURLWithPath: "\(out)/Contents.json"))
-try! #"{ "info" : { "author" : "xcode", "version" : 1 } }"#.write(toFile: "App/Stages/Assets.xcassets/Contents.json", atomically: true, encoding: .utf8)
 print("wrote \(images.count) icon sizes to \(out)")

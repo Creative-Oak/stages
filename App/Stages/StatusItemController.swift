@@ -47,38 +47,54 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
 
   private func render() {
     guard let button = item.button else { return }
-    let title: String
     var ink: NSColor?
-    var symbol = "squares.leading.rectangle"   // the system's Stage Manager glyph
+    var unavailable = false
     if let snapshot = model.snapshot, !snapshot.isAvailable {
-      title = "Stages"
-      symbol = "exclamationmark.triangle"
+      unavailable = true
       button.toolTip = snapshot.unavailable?.message
     } else if let current = model.current {
-      title = Self.truncate(current.title)
       ink = current.record.ink?.nsColor
-      button.toolTip = current.windowTitles.first
+      button.toolTip = [current.title, current.windowTitles.first].compactMap { $0 }.joined(separator: " — ")
     } else {
-      title = model.snapshot == nil ? "Stages" : "Desktop"
-      button.toolTip = nil
+      button.toolTip = model.snapshot == nil ? "Stages" : "Desktop"
     }
-    // A template symbol (follows the menu bar's light/dark), then the ink as a small dot and
-    // the name in the menu bar font.
-    let image = NSImage(systemSymbolName: symbol, accessibilityDescription: "Stages")?
-      .withSymbolConfiguration(.init(pointSize: 13, weight: .regular))
-    image?.isTemplate = true
-    button.image = image
-    button.imagePosition = .imageLeading
-    let font = NSFont.menuBarFont(ofSize: 0)
-    let text = NSMutableAttributedString()
-    if let ink {
-      text.append(NSAttributedString(string: "  ●", attributes: [.foregroundColor: ink, .font: NSFont.systemFont(ofSize: 8),
-                                                              .baselineOffset: 1.5]))
-      text.append(NSAttributedString(string: " " + title, attributes: [.font: font]))
-    } else {
-      text.append(NSAttributedString(string: " " + title, attributes: [.font: font]))
+    button.image = Self.glyph(ink: ink, unavailable: unavailable)
+    button.imagePosition = .imageOnly
+    button.title = ""
+    button.setAccessibilityLabel("Stages: " + (button.toolTip ?? ""))
+  }
+
+  /// Stages' own menu-bar glyph (not an SF Symbol): the centre stage as a window, the strip as
+  /// three marks to its left. The window is filled with the current stage's ink; the rest is
+  /// drawn in the menu bar's own text colour, so it follows light and dark menu bars. Without an
+  /// ink (or a readable stage) it's a plain template image; dashed when stages can't be read.
+  static func glyph(ink: NSColor?, unavailable: Bool) -> NSImage {
+    let size = NSSize(width: 20, height: 15)
+    let image = NSImage(size: size, flipped: false) { _ in
+      // Template images are tinted by the system; otherwise use the menu bar's label colour.
+      let line: NSColor = ink == nil ? .black : .labelColor
+      line.setStroke(); line.setFill()
+      // Strip: three short rounded marks on the left.
+      for i in 0..<3 {
+        NSBezierPath(roundedRect: NSRect(x: 1, y: 2.5 + CGFloat(i) * 4, width: 3.5, height: 2.5), xRadius: 1, yRadius: 1).fill()
+      }
+      // Centre stage: a rounded window.
+      let win = NSRect(x: 6.5, y: 1.5, width: 12.5, height: 12)
+      let path = NSBezierPath(roundedRect: win, xRadius: 2.6, yRadius: 2.6)
+      if let ink {
+        ink.setFill(); path.fill()
+        // Title-bar hint, in the paper colour, so the shape still reads as a window.
+        NSColor.white.withAlphaComponent(0.85).setFill()
+        NSBezierPath(roundedRect: NSRect(x: 8.3, y: 10.6, width: 4.5, height: 1.4), xRadius: 0.7, yRadius: 0.7).fill()
+      } else {
+        path.lineWidth = 1.4
+        if unavailable { path.setLineDash([2, 1.6], count: 2, phase: 0) }
+        line.setStroke(); path.stroke()
+      }
+      return true
     }
-    button.attributedTitle = text
+    image.isTemplate = ink == nil
+    return image
   }
 
   static func truncate(_ s: String) -> String {

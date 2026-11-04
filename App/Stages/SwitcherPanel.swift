@@ -51,7 +51,7 @@ final class SwitcherPanel {
     p.hidesOnDeactivate = false
     p.backgroundColor = .clear
     p.isOpaque = false
-    p.hasShadow = true
+    p.hasShadow = false   // the Liquid Glass draws its own
     let host = NSHostingView(rootView: SwitcherView(state: state, model: model))
     host.sizingOptions = [.intrinsicContentSize]
     p.contentView = host

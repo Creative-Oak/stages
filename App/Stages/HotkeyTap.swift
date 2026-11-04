@@ -5,7 +5,7 @@ import StageReader
 import Switcher
 
 /// Global keyboard shortcuts through a `CGEventTap` (needs Accessibility):
-///   hold ⌥ (configurable) + ⇥  open the switcher on the previous stage; ⇥/⇧⇥ or ↑/↓ step;
+///   hold ⌥ (configurable) + ⇥  open the switcher on the previous stage; ⇥/⇧⇥, ←/→ or ↑/↓ step;
 ///                              a stage's slot key (1–9, 0, a–z) goes straight there; release ⌥
 ///                              to switch; Esc cancels; ↩ switches.
 ///   ⌃⌥ ←/↑ and →/↓            previous / next stage in the stable cycle.
@@ -117,8 +117,8 @@ final class HotkeyTap {
     if var s = session {
       switch key {
       case Key.tab: s.step(shift ? -1 : 1)
-      case Key.down: s.step(1)
-      case Key.up: s.step(-1)
+      case Key.down, Key.right: s.step(1)
+      case Key.up, Key.left: s.step(-1)
       case Key.escape: cancel(); return true
       case Key.returnKey, Key.keypadEnter: commit(); return true
       default:
