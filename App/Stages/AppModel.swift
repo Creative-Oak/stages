@@ -20,6 +20,7 @@ final class AppModel {
 
   func start() {
     poller.onCommit = { [weak self] snapshot in self?.apply(snapshot) }
+    store.onEvent = { Self.log.notice("identity: \($0, privacy: .public)") }
     poller.start()
   }
 

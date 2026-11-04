@@ -244,3 +244,22 @@ import Testing
     #expect(s.stages(.strip).map(\.owners) == [["Signal"], ["Claude"]])
   }
 }
+
+@Suite struct CentreFallbackGuardTests {
+  @Test func thumbnailWithoutOverlayInStripBandIsNotCentre() {
+    // Mid-animation: a strip thumbnail is visible but its overlay hasn't caught up.
+    var scene = Scene.singles()
+    let stray = scene.appWindow("Signal", "Signal", Rect(x: 16, y: 300, w: 191, h: 159), onscreen: true)
+    let s = StageReader.read(scene.capture)
+    #expect(s.stages(.centre).first?.windowIDs.contains(stray) == false)
+    #expect(s.diagnostics.rejected.contains { $0.windowID == stray })
+    #expect(s.diagnostics.confidence == .low)
+  }
+
+  @Test func movingCentreWindowWithoutOverlayIsNotStable() {
+    var a = Scene.singles(), b = Scene.singles()
+    a.appWindow("Notes", "N", Rect(x: 400, y: 100, w: 600, h: 500), onscreen: true)
+    b.appWindow("Notes", "N", Rect(x: 420, y: 100, w: 600, h: 500), onscreen: true)
+    #expect(StageReader.read(a.capture).signature != StageReader.read(b.capture).signature)
+  }
+}

@@ -11,6 +11,9 @@ public final class StageStore {
   public private(set) var lastReasons: [UUID: MatchReason] = [:]
   /// Set when the stored window IDs belonged to an earlier boot and were discarded.
   public private(set) var discardedStaleIDs = false
+  /// Identity events (merge, split, revive, fingerprint match), record IDs only: no names or
+  /// titles. The app sends them to the system log.
+  public var onEvent: ((String) -> Void)?
 
   /// Uncustomised records survive this long off screen (other Spaces, short app quits).
   public static let unnamedTTL: TimeInterval = 6 * 60 * 60
@@ -40,7 +43,10 @@ public final class StageStore {
     guard snapshot.isAvailable else { return [] }
     let t = now()
     let stages = regroupPooled(snapshot.stages)
-    let inputs = stages.map { StageMatcher.Input(windowIDs: $0.windowIDs, fingerprint: Fingerprint(stage: $0, documents: documents)) }
+    let inputs = stages.map {
+      StageMatcher.Input(windowIDs: $0.windowIDs, fingerprint: Fingerprint(stage: $0, documents: documents),
+                         groupingVisible: !$0.pooled)
+    }
     let plan = StageMatcher.plan(stages: inputs, records: Array(records.values))
 
     for (loser, keeper) in plan.dormant {
@@ -62,11 +68,24 @@ public final class StageStore {
       records[record.id] = record
       reasons[record.id] = reason
       result.append(IdentifiedStage(record: record, stage: stage, reason: reason))
+      if let event = Self.event(reason, record.id, windows: stage.windowIDs.count) { onEvent?(event) }
     }
     lastReasons = reasons
     prune(at: t, onScreen: Set(reasons.keys))
     save()
     return result
+  }
+
+  private static func event(_ reason: MatchReason, _ id: UUID, windows: Int) -> String? {
+    func short(_ u: UUID) -> String { String(u.uuidString.prefix(8)) }
+    switch reason {
+    case .windowIDs, .new: return nil
+    case let .merged(absorbed, _): return "merge: \(short(id)) kept, absorbed \(absorbed.map(short).joined(separator: ",")) (\(windows) windows)"
+    case let .keptInSplit(shared, of): return "split: \(short(id)) kept \(shared) of \(of) windows"
+    case let .splitFrom(source): return "split: \(short(id)) new, off \(short(source))"
+    case let .revived(shared, _): return "revive: \(short(id)) (\(shared) windows)"
+    case let .fingerprint(score): return "fingerprint: \(short(id)) score \(Int(score * 100))"
+    }
   }
 
   /// Uncustomised records off screen for longer than `unnamedTTL` go; customised ones stay.

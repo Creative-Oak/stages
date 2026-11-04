@@ -11,8 +11,11 @@ public enum StageMatcher {
   public struct Input: Sendable {
     public var windowIDs: Set<UInt32>
     public var fingerprint: Fingerprint
-    public init(windowIDs: Set<UInt32>, fingerprint: Fingerprint) {
-      self.windowIDs = windowIDs; self.fingerprint = fingerprint
+    /// Grouping is visible (centre or strip), so a merge can be inferred here. False for pooled
+    /// overflow stages, whose grouping came from history or a guess.
+    public var groupingVisible: Bool
+    public init(windowIDs: Set<UInt32>, fingerprint: Fingerprint, groupingVisible: Bool = true) {
+      self.windowIDs = windowIDs; self.fingerprint = fingerprint; self.groupingVisible = groupingVisible
     }
   }
 
@@ -23,8 +26,10 @@ public enum StageMatcher {
     public var dormant: [UUID: UUID] = [:]
   }
 
-  /// 1. Merges: a stage containing most of the windows of two or more active records keeps the
-  ///    customised (else oldest) one; the rest go dormant with a link to it.
+  /// 1. Merges: a stage whose grouping is visible and contains most of the windows of exactly two
+  ///    active records (a drag adds one stage to another) keeps the customised one, else the one
+  ///    most recently in the centre (the drag target), else the older; the other goes dormant
+  ///    with a link. Three or more at once is never a drag, so it isn't treated as a merge.
   /// 2. Window IDs: remaining pairs, most shared windows first, 1:1. Dormant records take part, so
   ///    a merged-away record comes back when its windows split off again. A split's larger part
   ///    keeps the record; smaller parts get new records.
@@ -36,17 +41,19 @@ public enum StageMatcher {
     func preferred(_ a: StageRecord, _ b: StageRecord) -> Bool {
       if a.isCustomised != b.isCustomised { return a.isCustomised }
       if a.state != b.state { return a.state == .active }
+      let la = a.lastActive ?? .distantPast, lb = b.lastActive ?? .distantPast
+      if la != lb { return la > lb }
       return a.createdAt < b.createdAt
     }
 
     // 1. Merges.
     let active = records.filter { $0.state == .active && !$0.windowIDs.isEmpty }
-    for (i, s) in stages.enumerated() {
+    for (i, s) in stages.enumerated() where s.groupingVisible {
       let inside = active.filter { r in
         !claimed.contains(r.id) &&
           Double(s.windowIDs.intersection(r.windowIDs).count) / Double(r.windowIDs.count) > containedShare
       }
-      guard inside.count >= 2 else { continue }
+      guard inside.count == 2 else { continue }
       let sorted = inside.sorted(by: preferred)
       let keeper = sorted[0]
       let absorbed = sorted.dropFirst().map(\.id)

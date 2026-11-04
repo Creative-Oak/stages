@@ -27,6 +27,9 @@ public enum StageManagerConstants {
   /// the smaller one. Grouped tiles overlap ≥ 70 %; neighbouring tiles touch by ~1 pt.
   public static let groupOverlapRatio = 0.25
   public static let minWindowSide = 40.0
+  /// Right edge of the strip band, from the display's left edge. Shown strip tiles end by x 269
+  /// (column 16 + 253 wide); hidden ones are at negative x.
+  public static let stripBandRight = 290.0
 
   /// Processes whose windows are never stage members.
   public static let excludedOwners: Set<String> = [
@@ -168,14 +171,18 @@ public struct StageSnapshot: Codable, Hashable, Sendable {
 
   /// Equal for two reads of the same settled state. Covers membership, placement and tile
   /// sizes (sizes change mid-animation; positions change while the hidden strip slides, so
-  /// they are left out).
+  /// they are left out), plus the full frame of every centre window that has no overlay: that
+  /// rule is only trusted once such windows have stopped moving.
   public var signature: String {
     if let unavailable { return "unavailable:\(unavailable.rawValue)" }
     let parts = stages.map { s in
       let ids = s.windows.map { String($0.id) }.sorted().joined(separator: ",")
       return "\(s.displayID):\(s.position.rawValue):\(s.order):\(ids):\(Int(s.frame.w.rounded()))x\(Int(s.frame.h.rounded()))"
     }
-    return (parts + ["overlays:" + overlaySizes.joined(separator: ",")]).joined(separator: "|")
+    let bare = stages.filter { $0.position == .centre }.flatMap(\.windows).filter { $0.overlayID == nil }
+      .map { "\($0.id)@\(Int($0.frame.x)),\(Int($0.frame.y)),\(Int($0.frame.w)),\(Int($0.frame.h))" }
+    return (parts + ["overlays:" + overlaySizes.joined(separator: ","), "bare:" + bare.joined(separator: ",")])
+      .joined(separator: "|")
   }
 }
 
@@ -270,7 +277,18 @@ public enum StageReader {
 
       // 3. Centre stage = matched windows whose overlay is layer 0, plus onscreen candidates
       //    with no overlay at all.
-      let bare = unmatchedOnscreen.filter { display(for: $0.bounds).id == d.id }
+      //    A window with no overlay lying wholly in the strip band is a thumbnail mid-animation
+      //    (its overlay not caught up), not a centre window.
+      let unmatchedHere = unmatchedOnscreen.filter { display(for: $0.bounds).id == d.id }
+      let inStripBand = unmatchedHere.filter { $0.bounds.maxX <= d.frame.minX + C.stripBandRight }
+      let bare = unmatchedHere.filter { $0.bounds.maxX > d.frame.minX + C.stripBandRight }
+      for w in inStripBand {
+        diag.rejected.append(.init(windowID: w.id, owner: w.owner, title: w.name, bounds: w.bounds,
+                                   reason: "in the strip band with no overlay (mid-animation?)"))
+      }
+      if !inStripBand.isEmpty {
+        diag.concerns.append("\(inStripBand.count) thumbnail-like window(s) with no overlay in the strip band")
+      }
       diag.centreWithoutOverlay += bare.map(\.id)
       let centre = (here.filter { overlayOf[$0.id]!.layer == C.centreLayer } + bare).sorted { $0.z < $1.z }
       if !centre.isEmpty {

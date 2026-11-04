@@ -373,3 +373,50 @@ private func tempDir() -> URL {
     #expect(s.filter { $0.stage.position == .overflow }[0].stage.windows.count == 3)
   }
 }
+
+@MainActor @Suite struct MergeGuardTests {
+  @Test func draggingIntoTheCentreKeepsTheCentreStagesName() {
+    var t = Date(timeIntervalSince1970: 0)
+    let store = StageStore(directory: nil, now: { t })
+    // B is created first (older), A is in the centre when B is dragged into it.
+    let b = store.reconcile(snapshot([stage([2], .centre)]))[0].id
+    t += 10
+    let a = store.reconcile(snapshot([stage([1], .centre), stage([2])]))[0].id
+    store.rename(a, to: "A"); store.rename(b, to: "B")
+    t += 10
+    let merged = store.reconcile(snapshot([stage([1, 2], .centre)]))
+    #expect(merged[0].record.name == "A")
+    #expect(store.records[b]?.state == .dormant)
+  }
+
+  @Test func threeRecordsAtOnceIsNotAMerge() {
+    let store = StageStore(directory: nil)
+    let s = store.reconcile(snapshot([stage([1]), stage([2]), stage([3])]))
+    let bogus = store.reconcile(snapshot([stage([1, 2, 3], .centre)]))
+    #expect(store.records.values.allSatisfy { $0.state == .active })
+    if case .merged = bogus[0].reason { Issue.record("merged") }
+    // When things settle, every stage still has its own record.
+    let back = store.reconcile(snapshot([stage([1]), stage([2]), stage([3])]))
+    #expect(Set(back.map(\.id)) == Set(s.map(\.id)))
+  }
+
+  @Test func pooledStagesNeverMerge() {
+    let store = StageStore(directory: nil)
+    _ = store.reconcile(snapshot([stage([1]), stage([2])]))
+    var p = stage([1, 2], .overflow)
+    p.pooled = true
+    _ = store.reconcile(snapshot([p]))
+    #expect(store.records.values.allSatisfy { $0.state == .active })
+  }
+
+  @Test func eventsAreReportedWithoutNames() {
+    let store = StageStore(directory: nil)
+    var events: [String] = []
+    store.onEvent = { events.append($0) }
+    let s = store.reconcile(snapshot([stage([1]), stage([2])]))
+    store.rename(s[0].id, to: "Secret name")
+    _ = store.reconcile(snapshot([stage([1, 2])]))
+    #expect(events.count == 1 && events[0].hasPrefix("merge:"))
+    #expect(!events[0].contains("Secret"))
+  }
+}
