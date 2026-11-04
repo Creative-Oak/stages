@@ -11,7 +11,13 @@ targets:
   StagesApp:
     type: application
     platform: macOS
-    sources: [Stages]
+    sources:
+      - path: Stages
+        excludes: [AppIcon.icon]
+      # Icon Composer file (Liquid Glass app icon); a file reference, not a folder group.
+      - path: Stages/AppIcon.icon
+        type: file
+        buildPhase: resources
     dependencies:
       - package: StagesKit
         product: StageReader
