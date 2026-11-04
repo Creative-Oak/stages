@@ -109,7 +109,7 @@ final class AppModel {
       Self.log.notice("committed: \(snapshot.stages.count) read, \(self.stages.count) stages, \(d.overlayCount) overlays, confidence \(d.confidence.rawValue, privacy: .public)")
     }
     resolveDocuments()
-    prewarmSwitching()   // only looks up windows not cached yet
+    prewarmSwitching()   // links AX windows to CG windows where certain (cheap when nothing changed)
   }
 
   /// Look up AX document paths for windows (or titles) not seen before.
@@ -352,20 +352,23 @@ final class AppModel {
     guard committedCentre != id || pendingTarget != nil else { provisionalCurrent = nil; return }
     if let from = pendingTarget ?? committedCentre, from != id { noteUsed(from) }
     noteUsed(id)
+    let inFlight = pendingTarget   // an earlier switch's stage may still land; that's no evidence
     pendingTarget = id
     provisionalCurrent = id
     poller.poke()
     let started = ContinuousClock.now
     Task { [weak self] in
       guard let self else { return }
+      var wrongWindow = false
       for attempt in 1...2 {
         guard self.switchGeneration == generation else { return }
+        let leaving = self.committedCentre
         let inOneStage = self.stages.filter { s in s.stage.windows.contains { $0.pid == window.pid } }.count <= 1
         self.awaitingActivation = (window.pid, started)
-        // Same-titled windows of this app in front of the target (z-order), to pick the right AX window.
-        let rank = self.stages.flatMap(\.stage.windows)
-          .filter { $0.pid == window.pid && $0.title == window.title && $0.z < window.z }.count
-        let outcome = await StageActivator.raise(window, appInOneStage: inOneStage, sameTitleRank: rank)
+        // Same-titled windows of this app in front of the target (z-order), for the last-resort guess.
+        let ahead = self.stages.flatMap(\.stage.windows)
+          .filter { $0.pid == window.pid && $0.title == window.title && $0.z < window.z }.map(\.id)
+        let outcome = await StageActivator.raise(window, appInOneStage: inOneStage, aheadSameTitle: ahead, retry: wrongWindow)
         Self.log.notice("switch: raise took \(Self.ms(ContinuousClock.now - started)) ms (attempt \(attempt))")
         switch outcome {
         case .notTrusted:
@@ -375,14 +378,24 @@ final class AppModel {
         case let .failed(why):
           Self.log.notice("switch: attempt \(attempt) failed: \(why, privacy: .public)")
         case .raised, .appOnly:
-          if await self.waitForCentre(id, timeout: .milliseconds(1500)) {
+          switch await self.waitForCentre(id, from: [leaving, inFlight], pid: window.pid, timeout: .milliseconds(1500)) {
+          case .reached:
             guard self.switchGeneration == generation else { return }
             self.pendingTarget = nil
             self.switchProblem = nil
+            // The stage holds only this window of the app: the AX window raised is this one.
+            if outcome == .raised, stage.stage.windows.filter({ $0.pid == window.pid }).count == 1 {
+              StageActivator.confirm(window.id)
+            }
             Self.log.notice("switch: reached centre on attempt \(attempt) after \(Self.ms(ContinuousClock.now - started)) ms (\(outcome == .raised ? "window raised" : "app only", privacy: .public))")
             return
+          case .otherStageOfApp:
+            // Same-titled windows: the raise picked another window of this app. Try another one now.
+            wrongWindow = true
+            Self.log.notice("switch: attempt \(attempt) brought another stage of the same app")
+          case .timeout:
+            Self.log.notice("switch: not in centre after attempt \(attempt)")
           }
-          Self.log.notice("switch: not in centre after attempt \(attempt)")
         }
       }
       guard self.switchGeneration == generation else { return }
@@ -395,20 +408,33 @@ final class AppModel {
   /// Look up AX windows for every stage's most recent window, so a switch needn't (called when
   /// the switcher opens).
   func prewarmSwitching() {
-    StageActivator.prewarm(stages.compactMap { $0.stage.windows.min(by: { $0.z < $1.z }) })
+    let frontPid = NSWorkspace.shared.frontmostApplication?.processIdentifier
+    let focused = stages.filter { $0.stage.position == .centre }.flatMap(\.stage.windows)
+      .filter { $0.pid == frontPid }.min(by: { $0.z < $1.z })
+    StageActivator.learn(stages.flatMap(\.stage.windows), focused: focused)
   }
 
   static func ms(_ d: Duration) -> Int {
     Int(d.components.seconds * 1000 + d.components.attoseconds / 1_000_000_000_000_000)
   }
 
-  private func waitForCentre(_ id: UUID, timeout: Duration) async -> Bool {
+  private enum CentreWait { case reached, otherStageOfApp, timeout }
+
+  /// Waits for `id` in the centre. A different stage of the same app arriving instead (not one
+  /// in `from`: the stage the attempt left, an earlier switch's target) means the wrong one of
+  /// its windows was raised. A timeout means only "slow".
+  private func waitForCentre(_ id: UUID, from: [UUID?], pid: Int32, timeout: Duration) async -> CentreWait {
     let deadline = ContinuousClock.now + timeout
     while ContinuousClock.now < deadline {
-      if committedCentre == id { return true }
+      if let c = committedCentre {
+        if c == id { return .reached }
+        if !from.contains(c), stages.first(where: { $0.id == c })?.stage.windows.contains(where: { $0.pid == pid }) == true {
+          return .otherStageOfApp
+        }
+      }
       try? await Task.sleep(for: .milliseconds(100))
     }
-    return committedCentre == id
+    return committedCentre == id ? .reached : .timeout
   }
 
   func copyDiagnostics() {
