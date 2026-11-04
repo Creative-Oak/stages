@@ -171,10 +171,16 @@ case "record":
 case "tiles", "tile":
   // M6 spike: WindowManager publishes the strip as AXButtons with AXPress and AXAddToStage.
   guard AXIsProcessTrusted() else { fail("needs Accessibility for this terminal.") }
-  let tiles = StripTiles.list()
+  let tiles = TileActions.list()
   if command == "tiles" || args.isEmpty {
     if tiles.isEmpty { print("No strip tiles (is the strip empty, or Stage Manager off?)") }
     for (i, t) in tiles.enumerated() { print("\(i + 1). \"\(t.title)\" \(t.frame) actions: \(t.actions.joined(separator: ", "))") }
+    // What the poller reads each time (WindowSource.StripTiles): membership, and its cost.
+    let clock = ContinuousClock()
+    var latest: [StripTile]?
+    let elapsed = clock.measure { for _ in 0..<20 { latest = StripTiles.read() } }
+    for t in latest ?? [] { print("   tile \"\(t.title ?? "—")\" windows \(t.windowIDs)") }
+    print(String(format: "StripTiles.read(): %.1f ms per read (20 reads)", Double(elapsed.components.attoseconds) / 1e15 / 20 + Double(elapsed.components.seconds) * 1000 / 20))
     break
   }
   guard let n = Int(args[0]), tiles.indices.contains(n - 1), args.count > 1 else {
@@ -201,7 +207,7 @@ case "tiles", "tile":
       move(CGPoint(x: x, y: y), dx: -12)
       Thread.sleep(forTimeInterval: 0.016)
     }
-    func stripShown() -> Bool { StripTiles.list().contains { $0.frame.hasPrefix("[") && !$0.frame.hasPrefix("[-") } }
+    func stripShown() -> Bool { TileActions.list().contains { $0.frame.hasPrefix("[") && !$0.frame.hasPrefix("[-") } }
     var revealed = false
     for _ in 0..<45 {   // ~0.7 s of pushing at the edge
       move(CGPoint(x: main.minX, y: y), dx: -3)
@@ -213,7 +219,7 @@ case "tiles", "tile":
       fail("the strip didn't slide in: synthetic pointer movement doesn't reveal it (no click sent)")
     }
     Thread.sleep(forTimeInterval: 0.35)   // let the slide finish
-    let shown = StripTiles.list()   // positions once the strip has slid in
+    let shown = TileActions.list()   // positions once the strip has slid in
     guard shown.indices.contains(n - 1) else { fail("tile \(n) is gone") }
     let f = shown[n - 1].frame   // "[x,y w×h]"
     let nums = f.split { !"-0123456789.".contains($0) }.compactMap { Double($0) }
@@ -326,8 +332,8 @@ enum GestureSpike {
   static var lastX: CGFloat = 0, lastY: CGFloat = 0
 }
 
-/// WindowManager's strip tiles, read through its accessibility tree.
-enum StripTiles {
+/// WindowManager's strip tiles as AX elements, for trying their actions (M6 spike).
+enum TileActions {
   struct Tile { let element: AXUIElement; let title: String; let frame: String; let actions: [String] }
 
   static func list() -> [Tile] {

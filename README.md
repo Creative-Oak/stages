@@ -6,7 +6,7 @@ CGWindowList / AX APIs; see `NOTES.md` for every Stage Manager behaviour this re
 
 ## Layout
 
-- `Sources/StageReader` contains the pure rules: `WindowCapture -> StageSnapshot`, plus the stability gate. All Stage-Manager-specific constants live here.
+- `Sources/StageReader` contains the pure rules: `WindowCapture -> StageSnapshot`, plus the stability gate. All Stage-Manager-specific constants live here. With Accessibility, strip membership comes straight from WindowManager's accessibility tree (each strip tile's `AXWindowsIDs`); geometry fills in the rest.
 - `Sources/WindowSource` covers live CGWindowList capture and `StagePoller` (adaptive polling + activation notifications).
 - `Sources/StageStore` holds stage records (name, ink, slot) matched to snapshots by window IDs, saved to `~/Library/Application Support/Stages/stages.json`.
 - `App/` is the menu-bar app (`App/project.yml` → XcodeGen; sources in `App/Stages/`). Native AppKit/SwiftUI controls, with the design system's type, inks and rules.

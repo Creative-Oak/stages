@@ -8,6 +8,8 @@ struct Scene {
   var displays = [DisplayInfo(id: 1, frame: Rect(x: 0, y: 0, w: 1470, h: 956), isMain: true)]
   var stageManagerEnabled: Bool? = true
   var screenRecordingGranted = true
+  /// WindowManager's AX strip tiles; nil = not readable (geometry fallback).
+  var stripTiles: [StripTile]?
   private var nextID: UInt32 = 100
   private var pids: [String: Int32] = [:]
 
@@ -61,7 +63,7 @@ struct Scene {
 
   var capture: WindowCapture {
     WindowCapture(stageManagerEnabled: stageManagerEnabled, screenRecordingGranted: screenRecordingGranted,
-                  displays: displays, windows: windows)
+                  displays: displays, windows: windows, stripTiles: stripTiles)
   }
 
   /// Centre Claude + four single-app strip stages, strip shown at `stripX` or hidden at −269.

@@ -107,7 +107,7 @@ public final class StageStore {
     var owner: [UInt32: UUID] = [:]
     // Active records only: a dormant record shares its windows with the record that absorbed it.
     for r in records.values where r.state == .active { for id in r.windowIDs { owner[id] = r.id } }
-    for s in stages where !s.pooled {
+    for s in stages where !s.pooled && !s.authoritative {
       let owners = Set(s.windows.compactMap { owner[$0.id] })
       if owners.count >= 3 {
         return "\(s.position.rawValue) stage with windows of \(owners.count) records (\(s.windows.count) windows)"
@@ -121,7 +121,7 @@ public final class StageStore {
     let stages = regroupPooled(snapshot.stages)
     let inputs = stages.map {
       StageMatcher.Input(windowIDs: $0.windowIDs, fingerprint: Fingerprint(stage: $0, documents: documents),
-                         groupingVisible: !$0.pooled)
+                         groupingVisible: !$0.pooled, authoritative: $0.authoritative)
     }
     var plan = StageMatcher.plan(stages: inputs, records: Array(records.values))
     claimWakes(&plan, inputs: inputs, at: t)

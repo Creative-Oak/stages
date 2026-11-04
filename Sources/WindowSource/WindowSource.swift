@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import CoreGraphics
 import StageReader
 
@@ -62,7 +63,8 @@ public struct LiveWindowSource: WindowSource {
       appWindowGroupingBehavior: (pref(StageManagerConstants.groupingKey) as? NSNumber)?.intValue,
       stripAutoHide: (pref(StageManagerConstants.autoHideKey) as? NSNumber)?.boolValue,
       displays: Self.displays(),
-      windows: windows)
+      windows: windows,
+      stripTiles: StripTiles.read())
   }
 
   public static func displays() -> [DisplayInfo] {
@@ -75,5 +77,58 @@ public struct LiveWindowSource: WindowSource {
       let b = CGDisplayBounds(id)
       return DisplayInfo(id: id, frame: Rect(x: b.minX, y: b.minY, w: b.width, h: b.height), isMain: id == main)
     }
+  }
+}
+
+/// Reads WindowManager's strip tiles from its accessibility tree: `AXList` `sm.strip` holds one
+/// `AXButton` per strip stage, whose `AXWindowsIDs` are the stage's window IDs. Exact membership,
+/// read-only, no pointer. Needs Accessibility; nil without it (the reader falls back to geometry).
+public enum StripTiles {
+  public static func read() -> [StripTile]? {
+    guard AXIsProcessTrusted(),
+          let pid = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.WindowManager").first?.processIdentifier
+    else { return nil }
+    let app = AXUIElementCreateApplication(pid)
+    AXUIElementSetMessagingTimeout(app, 0.15)
+    var lists: [AXUIElement] = []
+    func walk(_ e: AXUIElement, depth: Int) {
+      guard depth < 4 else { return }
+      if string(e, "AXIdentifier") == "sm.strip" { lists.append(e); return }
+      for c in children(e) { walk(c, depth: depth + 1) }
+    }
+    // An unreadable tree (WindowManager busy, restarting) is "unknown", not "no tiles".
+    guard !children(app).isEmpty else { return nil }
+    walk(app, depth: 0)
+    var tiles: [StripTile] = []
+    for list in lists {
+      for button in children(list) {
+        var ids: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(button, "AXWindowsIDs" as CFString, &ids) == .success,
+              let numbers = ids as? [NSNumber] else { continue }
+        tiles.append(StripTile(windowIDs: numbers.map { $0.uint32Value }, frame: frame(button) ?? Rect(x: 0, y: 0, w: 0, h: 0),
+                               title: string(button, kAXTitleAttribute)))
+      }
+    }
+    return tiles
+  }
+
+  private static func children(_ e: AXUIElement) -> [AXUIElement] {
+    var v: CFTypeRef?
+    return AXUIElementCopyAttributeValue(e, kAXChildrenAttribute as CFString, &v) == .success ? (v as? [AXUIElement] ?? []) : []
+  }
+
+  private static func string(_ e: AXUIElement, _ a: String) -> String? {
+    var v: CFTypeRef?
+    return AXUIElementCopyAttributeValue(e, a as CFString, &v) == .success ? v as? String : nil
+  }
+
+  private static func frame(_ e: AXUIElement) -> Rect? {
+    var p: CFTypeRef?, s: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(e, kAXPositionAttribute as CFString, &p) == .success,
+          AXUIElementCopyAttributeValue(e, kAXSizeAttribute as CFString, &s) == .success else { return nil }
+    var point = CGPoint.zero, size = CGSize.zero
+    AXValueGetValue(p as! AXValue, .cgPoint, &point)
+    AXValueGetValue(s as! AXValue, .cgSize, &size)
+    return Rect(x: point.x, y: point.y, w: size.width, h: size.height)
   }
 }

@@ -14,8 +14,12 @@ public enum StageMatcher {
     /// Grouping is visible (centre or strip), so a merge can be inferred here. False for pooled
     /// overflow stages, whose grouping came from history or a guess.
     public var groupingVisible: Bool
-    public init(windowIDs: Set<UInt32>, fingerprint: Fingerprint, groupingVisible: Bool = true) {
+    /// Membership comes from WindowManager (strip tile), so a merge of any number of records is
+    /// real, not a misread.
+    public var authoritative: Bool
+    public init(windowIDs: Set<UInt32>, fingerprint: Fingerprint, groupingVisible: Bool = true, authoritative: Bool = false) {
       self.windowIDs = windowIDs; self.fingerprint = fingerprint; self.groupingVisible = groupingVisible
+      self.authoritative = authoritative
     }
   }
 
@@ -53,7 +57,7 @@ public enum StageMatcher {
         !claimed.contains(r.id) &&
           Double(s.windowIDs.intersection(r.windowIDs).count) / Double(r.windowIDs.count) > containedShare
       }
-      guard inside.count == 2 else { continue }
+      guard inside.count == 2 || (s.authoritative && inside.count > 2) else { continue }
       let sorted = inside.sorted(by: preferred)
       let keeper = sorted[0]
       let absorbed = sorted.dropFirst().map(\.id)

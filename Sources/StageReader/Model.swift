@@ -78,6 +78,18 @@ public struct DisplayInfo: Codable, Hashable, Sendable {
   }
 }
 
+/// One strip tile from WindowManager's accessibility tree (`AXList sm.strip` → `AXButton`):
+/// the stage's exact window IDs (`AXWindowsIDs`), its frame and its front window's title.
+public struct StripTile: Codable, Hashable, Sendable {
+  public var windowIDs: [UInt32]
+  public var frame: Rect
+  public var title: String?
+
+  public init(windowIDs: [UInt32], frame: Rect, title: String?) {
+    self.windowIDs = windowIDs; self.frame = frame; self.title = title
+  }
+}
+
 /// Everything the reader needs from one poll. This is also the fixture frame format.
 public struct WindowCapture: Codable, Hashable, Sendable {
   public var capturedAt: Date
@@ -91,14 +103,17 @@ public struct WindowCapture: Codable, Hashable, Sendable {
   public var stripAutoHide: Bool?
   public var displays: [DisplayInfo]
   public var windows: [RawWindow]
+  /// WindowManager's strip tiles, when its accessibility tree could be read (Accessibility
+  /// granted); nil otherwise. Overflow stages have no tiles.
+  public var stripTiles: [StripTile]?
 
   public init(capturedAt: Date = Date(timeIntervalSince1970: 0), stageManagerEnabled: Bool?,
               screenRecordingGranted: Bool, appWindowGroupingBehavior: Int? = nil, stripAutoHide: Bool? = nil,
-              displays: [DisplayInfo], windows: [RawWindow]) {
+              displays: [DisplayInfo], windows: [RawWindow], stripTiles: [StripTile]? = nil) {
     self.capturedAt = capturedAt; self.stageManagerEnabled = stageManagerEnabled
     self.screenRecordingGranted = screenRecordingGranted
     self.appWindowGroupingBehavior = appWindowGroupingBehavior; self.stripAutoHide = stripAutoHide
-    self.displays = displays; self.windows = windows
+    self.displays = displays; self.windows = windows; self.stripTiles = stripTiles
   }
 }
 

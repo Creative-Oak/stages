@@ -585,3 +585,27 @@ private func snapshot(_ stages: [Stage], live: Set<UInt32>) -> StageSnapshot {
     #expect(store.reconcile(snap).count == 3)
   }
 }
+
+@MainActor @Suite struct AuthoritativeTileTests {
+  @Test func aTileOfThreeKnownStagesIsAcceptedAndMerged() {
+    let store = StageStore(directory: nil)
+    let s = store.reconcile(snapshot([stage([1], .centre, apps: ["Claude"]), stage([2], apps: ["Safari"]),
+                                      stage([3], apps: ["Safari"]), stage([4], apps: ["Safari"])]))
+    store.rename(s[2].id, to: "Research")
+    // WindowManager's tile says 2, 3 and 4 are one stage.
+    var tile = stage([2, 3, 4], apps: ["Safari"])
+    tile.authoritative = true
+    let later = store.reconcile(snapshot([stage([1], .centre, apps: ["Claude"]), tile]))
+    #expect(store.lastRejection == nil)
+    #expect(later.count == 2)
+    #expect(later[1].id == s[2].id && later[1].record.name == "Research")   // the named one keeps it
+    #expect(store.records.values.filter { $0.state == .dormant }.count == 2)
+  }
+
+  @Test func inferredStagesAreStillGuarded() {
+    let store = StageStore(directory: nil)
+    _ = store.reconcile(snapshot([stage([1], .centre, apps: ["A"]), stage([2], apps: ["B"]), stage([3], apps: ["C"])]))
+    _ = store.reconcile(snapshot([stage([1, 2, 3], .centre, apps: ["A", "B", "C"])]))
+    #expect(store.lastRejection != nil)
+  }
+}

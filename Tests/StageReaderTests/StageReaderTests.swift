@@ -263,3 +263,55 @@ import Testing
     #expect(StageReader.read(a.capture).signature != StageReader.read(b.capture).signature)
   }
 }
+
+@Suite struct StripTileTests {
+  /// A strip whose thumbnails' geometry is misleading, with WindowManager's tiles telling the truth.
+  func scene() -> (Scene, safari: [UInt32], mail: UInt32, maps: UInt32) {
+    var s = Scene()
+    s.wmNoise()
+    s.stageWindow("Claude", "Claude", Rect(x: 8, y: 41, w: 1454, h: 907), strip: false)
+    // Three Safari windows, one stage (fanned thumbnails).
+    let a = s.stageWindow("Safari", "Start Page", Rect(x: -269, y: 324, w: 197, h: 140), strip: true)
+    let b = s.stageWindow("Safari", "Docs", Rect(x: -253, y: 330, w: 197, h: 140), strip: true)
+    let c = s.stageWindow("Safari", "News", Rect(x: -237, y: 336, w: 197, h: 140), strip: true)
+    // Mail touches the Safari tile by a point: geometry alone would have to guess.
+    let mail = s.stageWindow("Mail", "Inbox", Rect(x: -269, y: 475, w: 197, h: 158), strip: true)
+    // Overflow, parked offscreen.
+    let maps = s.stageWindow("Maps", "Maps", Rect(x: -478, y: 367, w: 178, h: 135), strip: true, onscreen: false)
+    s.stripTiles = [
+      StripTile(windowIDs: [a, b, c], frame: Rect(x: -269, y: 324, w: 229, h: 152), title: "Start Page"),
+      StripTile(windowIDs: [mail], frame: Rect(x: -269, y: 475, w: 197, h: 158), title: "Inbox"),
+    ]
+    return (s, [a, b, c], mail, maps)
+  }
+
+  @Test func tilesDefineStripMembership() {
+    let (scene, safari, mail, maps) = scene()
+    let s = StageReader.read(scene.capture)
+    #expect(s.stages(.strip).map(\.windowIDs) == [Set(safari), [mail]])
+    #expect(s.stages(.overflow).map(\.windowIDs) == [[maps]])
+    #expect(s.stages(.centre).map(\.owners) == [["Claude"]])
+    #expect(s.diagnostics.classification.contains { $0.hasPrefix("strip from WindowManager's AX tiles") })
+  }
+
+  @Test func tileWindowIsNeverCentreEvenOnALayerZeroOverlay() {
+    var (scene, _, mail, _) = scene()
+    // Mid-switch every overlay drops to layer 0; and this one even sits outside the strip band.
+    scene.windows = scene.windows.map { w in
+      var w = w
+      if w.owner == "WindowManager", w.bounds == Rect(x: -269, y: 475, w: 197, h: 158) { w.layer = 0 }
+      return w
+    }
+    let s = StageReader.read(scene.capture)
+    #expect(s.stages(.strip).contains { $0.windowIDs == [mail] })
+    #expect(!(s.stages(.centre).first?.windowIDs.contains(mail) ?? false))
+  }
+
+  @Test func emptyTileListMeansNoStrip() {
+    var (scene, _, _, _) = scene()
+    scene.stripTiles = []
+    let s = StageReader.read(scene.capture)
+    #expect(s.stages(.strip).isEmpty)
+    #expect(s.stages(.overflow).count == 5)   // every strip-layer window is in no tile
+  }
+}

@@ -78,11 +78,14 @@ public struct Stage: Codable, Hashable, Sendable {
   /// Overflow stages are all parked at one spot, so geometry can't tell which windows share a
   /// stage. A pooled stage is one overflow window; StageStore regroups them from history.
   public var pooled: Bool
+  /// Membership read from WindowManager itself (a strip tile's `AXWindowsIDs`), not inferred.
+  public var authoritative: Bool
 
   public init(position: Position, order: Int, displayID: UInt32, windows: [StageWindow], frame: Rect,
-              appIconCount: Int?, pooled: Bool = false) {
+              appIconCount: Int?, pooled: Bool = false, authoritative: Bool = false) {
     self.position = position; self.order = order; self.displayID = displayID
     self.windows = windows; self.frame = frame; self.appIconCount = appIconCount; self.pooled = pooled
+    self.authoritative = authoritative
   }
 
   public var windowIDs: Set<UInt32> { Set(windows.map(\.id)) }
@@ -277,8 +280,15 @@ public enum StageReader {
     }
 
     var stages: [Stage] = []
+    let candidateByID = Dictionary(candidates.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+    if let tiles = capture.stripTiles {
+      diag.classification.append("strip from WindowManager's AX tiles: \(tiles.count) tile(s)")
+    }
     for d in displays.sorted(by: { ($0.isMain ? 0 : 1, $0.id) < ($1.isMain ? 0 : 1, $1.id) }) {
       let here = members.filter { display(for: overlayOf[$0.id]!.bounds).id == d.id }
+      // WindowManager's own strip tiles (AXWindowsIDs), when readable: exact strip membership.
+      let tilesHere = capture.stripTiles?.filter { display(for: $0.frame).id == d.id }
+      let tileIDs = Set((tilesHere ?? []).flatMap(\.windowIDs))
 
       // 3. Centre stage = matched windows whose overlay is layer 0, plus onscreen candidates
       //    with no overlay at all.
@@ -303,7 +313,9 @@ public enum StageReader {
       if !demoted.isEmpty {
         diag.classification.append("\(demoted.count) layer-0 overlay(s) in the strip band read as thumbnails")
       }
-      let centre = (layerZero.filter { !inBand(overlayOf[$0.id]!.bounds) } + bare).sorted { $0.z < $1.z }
+      let centre = (layerZero.filter { !inBand(overlayOf[$0.id]!.bounds) } + bare)
+        .filter { !tileIDs.contains($0.id) }   // a tile's window is in the strip, whatever its overlay says
+        .sorted { $0.z < $1.z }
       if !centre.isEmpty {
         let bounds = centre.map { overlayOf[$0.id]?.bounds ?? $0.bounds }
         let frame = bounds.dropFirst().reduce(bounds[0]) { $0.union($1) }
@@ -311,8 +323,34 @@ public enum StageReader {
                             frame: frame, appIconCount: nil))
       }
 
-      // 4. Strip stages = connected components of substantially overlapping layer-19 overlays.
       let strip = here.filter { overlayOf[$0.id]!.layer == C.stripLayer } + demoted
+
+      // 4a. With tiles: one strip stage per tile, top to bottom, with exactly its windows; every
+      //     other strip-layer window is overflow (overflow stages have no tiles).
+      if let tilesHere {
+        for (i, t) in tilesHere.sorted(by: { ($0.frame.minY, $0.frame.minX) < ($1.frame.minY, $1.frame.minX) }).enumerated() {
+          let ws = t.windowIDs.compactMap { candidateByID[$0] }.sorted { $0.z < $1.z }
+          guard !ws.isEmpty else {
+            diag.concerns.append("strip tile “\(t.title ?? "?")” lists no window in the capture")
+            continue
+          }
+          let badges = icons.filter { t.frame.contains(x: $0.bounds.midX, y: $0.bounds.midY) }.count
+          let stage = Stage(position: .strip, order: i, displayID: d.id, windows: ws.map(stageWindow),
+                            frame: t.frame, appIconCount: badges, authoritative: true)
+          diag.classification.append("strip \(i) (tile) \(t.frame) apps=\(stage.owners)")
+          stages.append(stage)
+        }
+        let pool = strip.filter { !tileIDs.contains($0.id) }.sorted { $0.z < $1.z }
+        for (i, w) in pool.enumerated() {
+          stages.append(Stage(position: .overflow, order: i, displayID: d.id, windows: [stageWindow(w)],
+                              frame: overlayOf[w.id]!.bounds, appIconCount: nil, pooled: true))
+        }
+        if !pool.isEmpty { diag.classification.append("overflow pool: \(pool.count) window(s), apps=\(pool.map(\.owner))") }
+        continue
+      }
+
+      // 4b. Without tiles (no Accessibility): strip stages = connected components of
+      //     substantially overlapping layer-19 overlays.
       func grouped(_ a: Rect, _ b: Rect) -> Bool {
         a.intersectionArea(b) >= C.groupOverlapRatio * min(a.area, b.area)
       }
