@@ -170,6 +170,9 @@ final class HotkeyTap {
       let (candidates, windows) = model.stageWindowCandidates()
       guard candidates.count > 1 else { return true }
       open(SwitcherSession(candidates: candidates), windows: windows)
+      // Link this stage's windows to their AX windows now, so the switch is two AX calls.
+      let ws = Array(windows.values)
+      later { StageActivator.learn(ws, focused: nil) }
       return true
     }
 

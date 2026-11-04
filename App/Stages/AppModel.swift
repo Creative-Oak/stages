@@ -344,11 +344,15 @@ final class AppModel {
     UUID(uuidString: String(format: "57A6E500-0000-4000-8000-%012X", id))!
   }
 
-  /// Bring one window of the current stage forward (the in-stage switcher). The window is raised
-  /// before its app is activated, so Stage Manager stays on this stage even when the app has
-  /// windows in others.
+  /// Bring one window of the current stage forward (the in-stage switcher). As with ⌘⇥: an app
+  /// whose windows are all in this stage is made frontmost first (the instant part), then the
+  /// window is raised; an app with windows in other stages gets the window raised first, so
+  /// Stage Manager stays on this stage.
   func focusWindow(_ window: StageWindow) {
-    Task { _ = await StageActivator.raise(window, appInOneStage: false) }
+    let elsewhere = stages.contains { s in s.stage.position != .centre && s.stage.windows.contains { $0.pid == window.pid } }
+    let started = ContinuousClock.now
+    awaitingActivation = (window.pid, started)
+    Task { _ = await StageActivator.raise(window, appInOneStage: !elsewhere) }
   }
 
   /// Called after each committed snapshot (the open switcher refreshes).
