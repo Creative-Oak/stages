@@ -46,15 +46,22 @@ nonisolated enum StageActivator {
     }
   }
 
-  /// Raise `window` (the stage's most recent one) and activate its app.
-  static func raise(_ window: StageWindow) async -> Outcome {
-    await Task.detached(priority: .userInitiated) { raiseNow(window) }.value
+  /// Raise `window` (the stage's most recent one) and activate its app. When the app has windows
+  /// in no other stage, it's made frontmost first, so keyboard focus moves before the (slower)
+  /// window raise, as with ⌘⇥; otherwise the window is raised first so Stage Manager brings the
+  /// right one of the app's stages.
+  static func raise(_ window: StageWindow, appInOneStage: Bool) async -> Outcome {
+    await Task.detached(priority: .userInitiated) { raiseNow(window, frontmostFirst: appInOneStage) }.value
   }
 
-  private static func raiseNow(_ window: StageWindow) -> Outcome {
+  private static func raiseNow(_ window: StageWindow, frontmostFirst: Bool) -> Outcome {
     guard AXIsProcessTrusted() else { return .notTrusted }
     let app = AXUIElementCreateApplication(window.pid)
     AXUIElementSetMessagingTimeout(app, 0.5)
+    var frontmost: AXError = .success
+    if frontmostFirst {
+      frontmost = AXUIElementSetAttributeValue(app, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
+    }
     var target = cache.withLock { $0[key(window)] }?.element
     if let t = target, AXUIElementPerformAction(t, kAXRaiseAction as CFString) != .success {
       cache.withLock { $0[key(window)] = nil }   // stale (window closed or re-created)
@@ -67,7 +74,9 @@ nonisolated enum StageActivator {
       target = found
     }
     if let target { AXUIElementSetAttributeValue(target, kAXMainAttribute as CFString, kCFBooleanTrue) }
-    let frontmost = AXUIElementSetAttributeValue(app, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
+    if !frontmostFirst {
+      frontmost = AXUIElementSetAttributeValue(app, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
+    }
     if frontmost != .success {
       // AX refused (rare); ask the app through AppKit instead.
       let ok = DispatchQueue.main.sync { NSRunningApplication(processIdentifier: window.pid)?.activate() ?? false }

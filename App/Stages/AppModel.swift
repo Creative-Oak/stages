@@ -50,8 +50,16 @@ final class AppModel {
 
   /// Activating an app brings its stage to the centre. Show that at once when the app is in
   /// exactly one stage; the next committed snapshot confirms or corrects it.
+  /// The app a switch is making frontmost, and when the switch started (to log how long until
+  /// macOS reports it frontmost: the moment the switch is felt).
+  @ObservationIgnored private var awaitingActivation: (pid: Int32, since: ContinuousClock.Instant)?
+
   private func activated(_ pid: Int32?) {
     activatedAt = .now
+    if let a = awaitingActivation, a.pid == pid {
+      Self.log.notice("switch: frontmost after \(Self.ms(ContinuousClock.now - a.since)) ms")
+      awaitingActivation = nil
+    }
     // While stepping, activations come from Stage Manager's animation; the target stands.
     guard !steppingActive else { return }
     let containing = pid.map { pid in stages.filter { $0.stage.windows.contains { $0.pid == pid } } } ?? []
@@ -79,6 +87,9 @@ final class AppModel {
     stages = store.reconcile(snapshot)
     records = Array(store.records.values)
     sleeping = store.sleeping
+    // Stages switched to by other means (Dock, clicking the strip) join the recent list once
+    // confirmed; not while a switch of ours is in flight (that snapshot may predate it).
+    if pendingTarget == nil, let c = committedCentre, recent.first != c { noteUsed(c) }
     writeState()
     logActivity()
     // Mid-walk, intermediate snapshots don't move the menu bar off the target.
@@ -272,11 +283,32 @@ final class AppModel {
   /// The committed centre stage, ignoring any provisional guess.
   private var committedCentre: UUID? { stages.first { $0.stage.position == .centre }?.id }
 
+  /// Recently used stages, most recent first, updated the moment a switch starts (snapshots
+  /// confirm a switch only after Stage Manager's ~1 s animation, so their order lags; a quick
+  /// second ⌘⇥ would otherwise target the stage you're already going to).
+  @ObservationIgnored private var recent: [UUID] = []
+  /// The stage a switch in flight is going to.
+  @ObservationIgnored private var pendingTarget: UUID?
+
+  private func noteUsed(_ id: UUID) {
+    recent.removeAll { $0 == id }
+    recent.insert(id, at: 0)
+    if recent.count > 64 { recent.removeLast(recent.count - 64) }
+  }
+
   var candidates: [Candidate] {
-    stages.map { s in
-      Candidate(id: s.id, name: s.record.name, apps: s.stage.owners, titles: s.windowTitles,
-                position: Candidate.Position(s.stage.position), order: s.stage.order, slot: s.record.slot,
-                lastActive: s.record.lastActive, createdAt: s.record.createdAt)
+    // While a switch is in flight its target is "current" and the stage it left is most recent.
+    let currentID = pendingTarget ?? committedCentre
+    let rank = Dictionary(uniqueKeysWithValues: recent.enumerated().map { ($1, $0) })
+    let now = Date()
+    return stages.map { s in
+      let position: Candidate.Position =
+        s.id == currentID ? .centre :
+        s.stage.position == .centre ? .strip : Candidate.Position(s.stage.position)
+      let lastActive = rank[s.id].map { now.addingTimeInterval(-Double($0)) } ?? s.record.lastActive.map { min($0, now.addingTimeInterval(-1000)) }
+      return Candidate(id: s.id, name: s.record.name, apps: s.stage.owners, titles: s.windowTitles,
+                       position: position, order: s.stage.order, slot: s.record.slot,
+                       lastActive: lastActive, createdAt: s.record.createdAt)
     }
   }
 
@@ -320,7 +352,10 @@ final class AppModel {
     guard let stage = stages.first(where: { $0.id == id }), let window = stage.stage.windows.min(by: { $0.z < $1.z }) else { return }
     switchGeneration += 1
     let generation = switchGeneration
-    guard committedCentre != id else { provisionalCurrent = nil; return }
+    guard committedCentre != id || pendingTarget != nil else { provisionalCurrent = nil; return }
+    if let from = pendingTarget ?? committedCentre, from != id { noteUsed(from) }
+    noteUsed(id)
+    pendingTarget = id
     provisionalCurrent = id
     poller.poke()
     let started = ContinuousClock.now
@@ -328,10 +363,13 @@ final class AppModel {
       guard let self else { return }
       for attempt in 1...2 {
         guard self.switchGeneration == generation else { return }
-        let outcome = await StageActivator.raise(window)
+        let inOneStage = self.stages.filter { s in s.stage.windows.contains { $0.pid == window.pid } }.count <= 1
+        self.awaitingActivation = (window.pid, started)
+        let outcome = await StageActivator.raise(window, appInOneStage: inOneStage)
         Self.log.notice("switch: raise took \(Self.ms(ContinuousClock.now - started)) ms (attempt \(attempt))")
         switch outcome {
         case .notTrusted:
+          self.pendingTarget = nil
           self.switchProblem = "Switching needs Accessibility permission."
           return
         case let .failed(why):
@@ -339,6 +377,7 @@ final class AppModel {
         case .raised, .appOnly:
           if await self.waitForCentre(id, timeout: .milliseconds(1500)) {
             guard self.switchGeneration == generation else { return }
+            self.pendingTarget = nil
             self.switchProblem = nil
             Self.log.notice("switch: reached centre on attempt \(attempt) after \(Self.ms(ContinuousClock.now - started)) ms (\(outcome == .raised ? "window raised" : "app only", privacy: .public))")
             return
@@ -347,6 +386,7 @@ final class AppModel {
         }
       }
       guard self.switchGeneration == generation else { return }
+      self.pendingTarget = nil
       self.switchProblem = "Couldn't bring \(stage.title) to the centre."
       NSSound.beep()
     }
