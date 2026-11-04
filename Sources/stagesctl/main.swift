@@ -4,8 +4,8 @@
 //   stagesctl watch                                      print each committed snapshot + poll cost
 //   stagesctl record <name> --note "…" [--frames N] [--interval ms] [--delay s] [--out dir] [--keep-titles]
 //   stagesctl tiles                                      list WindowManager's strip tiles (AX)
-//   stagesctl tile <n> press|add|shift-click             AXPress / AXAddToStage / a synthetic
-//                                                        Shift-click on tile n (M6 spike)
+//   stagesctl tile <n> press|add|click|shift-click       AXPress / AXAddToStage / a synthetic
+//                                                        click or Shift-click on tile n (M6 spike)
 //   stagesctl gestures                                   spike: print the gesture events a global
 //                                                        event tap receives (needs Accessibility)
 //
@@ -179,7 +179,8 @@ case "tiles", "tile":
   guard let n = Int(args[0]), tiles.indices.contains(n - 1), args.count > 1 else {
     fail("usage: stagesctl tile <n> press|add   (n from `stagesctl tiles`)")
   }
-  if args[1] == "shift-click" {
+  if args[1] == "shift-click" || args[1] == "click" {
+    let withShift = args[1] == "shift-click"
     // Reveal the strip (pointer to the left edge), Shift-click the tile, put the pointer back.
     let back = CGEvent(source: nil)?.location ?? .zero
     let main = CGDisplayBounds(CGMainDisplayID())
@@ -194,15 +195,27 @@ case "tiles", "tile":
     let p = CGPoint(x: nums[0] + nums[2] / 2, y: nums[1] + nums[3] / 2)
     move(p)
     Thread.sleep(forTimeInterval: 0.15)
+    // A HID-state source, so the Shift press below is part of the live modifier state that UI
+    // reads, not just a flag on the click.
+    let source = CGEventSource(stateID: .hidSystemState)
+    let shiftKey: CGKeyCode = 56
+    if withShift {
+      CGEvent(keyboardEventSource: source, virtualKey: shiftKey, keyDown: true)?.post(tap: .cghidEventTap)
+      Thread.sleep(forTimeInterval: 0.08)
+    }
     for type in [CGEventType.leftMouseDown, .leftMouseUp] {
-      let e = CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: p, mouseButton: .left)
-      e?.flags = .maskShift
+      let e = CGEvent(mouseEventSource: source, mouseType: type, mouseCursorPosition: p, mouseButton: .left)
+      e?.setIntegerValueField(.mouseEventClickState, value: 1)
+      if withShift { e?.flags = .maskShift }
       e?.post(tap: .cghidEventTap)
-      Thread.sleep(forTimeInterval: 0.05)
+      Thread.sleep(forTimeInterval: 0.08)
+    }
+    if withShift {
+      CGEvent(keyboardEventSource: source, virtualKey: shiftKey, keyDown: false)?.post(tap: .cghidEventTap)
     }
     Thread.sleep(forTimeInterval: 0.3)
     move(back)
-    print("Shift-clicked \"\(shown[n - 1].title)\" at \(Int(p.x)),\(Int(p.y)) \(f)")
+    print("\(withShift ? "Shift-clicked" : "Clicked") \"\(shown[n - 1].title)\" at \(Int(p.x)),\(Int(p.y)) \(f)")
     break
   }
   let action = args[1] == "add" ? "AXAddToStage" : args[1] == "press" ? "AXPress" : args[1]
