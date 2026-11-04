@@ -40,7 +40,7 @@ public final class StagePoller {
   private var unsettledSince: ContinuousClock.Instant?
   private var readsSinceChange = 0
   private var lastPoke: ContinuousClock.Instant?
-  private var observer: NSObjectProtocol?
+  private var observers: [NSObjectProtocol] = []
   private var wake: CheckedContinuation<Void, Never>?
 
   public init(source: WindowSource = LiveWindowSource(), pacing: Pacing = Pacing()) {
@@ -50,10 +50,13 @@ public final class StagePoller {
 
   public func start() {
     guard task == nil else { return }
-    observer = NSWorkspace.shared.notificationCenter.addObserver(
-      forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
-    ) { [weak self] _ in
-      MainActor.assumeIsolated { self?.poke() }
+    // Activations (a stage switch), launches and quits (a stage appears or goes) mean a change.
+    let center = NSWorkspace.shared.notificationCenter
+    observers = [NSWorkspace.didActivateApplicationNotification, NSWorkspace.didLaunchApplicationNotification,
+                 NSWorkspace.didTerminateApplicationNotification].map { name in
+      center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+        MainActor.assumeIsolated { self?.poke() }
+      }
     }
     task = Task { [weak self] in
       while !Task.isCancelled {
@@ -66,8 +69,8 @@ public final class StagePoller {
 
   public func stop() {
     task?.cancel(); task = nil
-    if let observer { NSWorkspace.shared.notificationCenter.removeObserver(observer) }
-    observer = nil
+    observers.forEach(NSWorkspace.shared.notificationCenter.removeObserver)
+    observers = []
     poke()
   }
 

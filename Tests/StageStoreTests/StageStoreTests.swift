@@ -647,6 +647,55 @@ private func snapshot(_ stages: [Stage], live: Set<UInt32>) -> StageSnapshot {
     #expect(later.map(\.record.slot) == ["2", "1"])
   }
 
+  @Test func aClosedStagesKeyIsReservedBrieflyThenReused() {
+    var t = Date(timeIntervalSince1970: 0)
+    let store = StageStore(directory: nil, now: { t })
+    let s = store.reconcile(snapshot([stage([1], apps: ["A"]), stage([2], apps: ["B"])]))
+    #expect(s.map(\.record.slot) == ["1", "2"])
+    t += 10   // B closed: a stage opened within the grace period doesn't take its key
+    let c = store.reconcile(snapshot([stage([1], apps: ["A"]), stage([3], apps: ["C"])]))
+    #expect(c.map(\.record.slot) == ["1", "3"])
+    t += StageStore.slotGrace   // later, the next new stage gets it
+    let d = store.reconcile(snapshot([stage([1], apps: ["A"]), stage([3], apps: ["C"]), stage([4], apps: ["D"])]))
+    #expect(d.map(\.record.slot) == ["1", "3", "2"])
+  }
+
+  @Test func aReturningStageGetsItsKeyBackIfNobodyTookIt() {
+    var t = Date(timeIntervalSince1970: 0)
+    let store = StageStore(directory: nil, now: { t })
+    let s = store.reconcile(snapshot([stage([1], apps: ["A"]), stage([2], apps: ["Mail"], titles: ["Inbox"])]))
+    t += 300
+    _ = store.reconcile(snapshot([stage([1], apps: ["A"])]))   // Mail quit for five minutes
+    t += 1
+    let back = store.reconcile(snapshot([stage([1], apps: ["A"]), stage([7], apps: ["Mail"], titles: ["Inbox"])]))
+    #expect(back[1].id == s[1].id && back[1].record.slot == "2")
+  }
+
+  @Test func aKeyTakenWhileAwayStaysWithItsNewStage() {
+    var t = Date(timeIntervalSince1970: 0)
+    let store = StageStore(directory: nil, now: { t })
+    let s = store.reconcile(snapshot([stage([1], apps: ["A"]), stage([2], apps: ["Mail"], titles: ["Inbox"])]))
+    t += StageStore.slotGrace + 60
+    let c = store.reconcile(snapshot([stage([1], apps: ["A"]), stage([3], apps: ["C"])]))
+    #expect(c[1].record.slot == "2")
+    t += 1
+    let back = store.reconcile(snapshot([stage([1], apps: ["A"]), stage([3], apps: ["C"]), stage([7], apps: ["Mail"], titles: ["Inbox"])]))
+    #expect(back[2].id == s[1].id)
+    #expect(back.map(\.record.slot) == ["1", "2", "3"])   // C keeps 2; Mail gets the next free key
+  }
+
+  @Test func keysNeverMoveWhileStagesAreOpen() {
+    var t = Date(timeIntervalSince1970: 0)
+    let store = StageStore(directory: nil, now: { t })
+    let first = store.reconcile(snapshot((1...5).map { stage([UInt32($0)], apps: ["App\($0)"]) }))
+    t += 3600
+    // Stages close and open around them; the survivors' keys stay put.
+    let later = store.reconcile(snapshot([stage([2], apps: ["App2"]), stage([4], apps: ["App4"]), stage([9], apps: ["New"])]))
+    #expect(later[0].id == first[1].id && later[0].record.slot == "2")
+    #expect(later[1].id == first[3].id && later[1].record.slot == "4")
+    #expect(later[2].record.slot == "1")   // the lowest key no open stage holds
+  }
+
   @Test func namedSleepingStagesKeepTheirKey() {
     let store = StageStore(directory: nil)
     let s = store.reconcile(snapshot([stage([1], apps: ["A"])], live: [1]))

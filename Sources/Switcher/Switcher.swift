@@ -107,6 +107,23 @@ public struct SwitcherSession: Sendable {
     all.first { $0.slot == key.lowercased() }
   }
 
+  /// A newer snapshot while the switcher is open: stages that closed drop out, the rest keep
+  /// their place (nothing moves under the user), new ones join at the end, and the selection
+  /// stays on the same stage (or the nearest place, if that one closed).
+  public mutating func refresh(_ candidates: [Candidate]) {
+    let selectedID = selected?.id
+    let byID = Dictionary(candidates.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+    var next = all.compactMap { byID[$0.id] }
+    let kept = Set(next.map(\.id))
+    next += SwitcherOrder.mru(candidates.filter { !kept.contains($0.id) })
+    all = next
+    if let selectedID, let i = visible.firstIndex(where: { $0.id == selectedID }) {
+      selection = i
+    } else {
+      selection = min(selection, max(visible.count - 1, 0))
+    }
+  }
+
   public mutating func backspace() {
     guard !query.isEmpty else { return }
     query.removeLast()

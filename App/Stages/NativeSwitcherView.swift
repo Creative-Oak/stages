@@ -89,7 +89,13 @@ struct NativeSwitcherView: View {
     .padding(.vertical, 6)
     .frame(width: Self.itemWidth)
     .background {
-      if isSelected { RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.primary.opacity(0.12)) }
+      // Selection is drawn, not just tinted: a 2 pt rule (readable in greyscale, on any wallpaper
+      // behind the glass) over a firmer fill.
+      if isSelected {
+        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+        shape.fill(.primary.opacity(0.16))
+          .overlay(shape.strokeBorder(.primary.opacity(0.75), lineWidth: 2))
+      }
     }
     .accessibilityElement(children: .ignore)
     .accessibilityLabel("\(title(c)), slot \(c.slot ?? "none")")

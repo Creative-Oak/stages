@@ -109,6 +109,7 @@ final class AppModel {
       Self.log.notice("committed: \(snapshot.stages.count) read, \(self.stages.count) stages, \(d.overlayCount) overlays, confidence \(d.confidence.rawValue, privacy: .public)")
     }
     resolveDocuments()
+    onCommitted?()
     prewarmSwitching()   // links AX windows to CG windows where certain (cheap when nothing changed)
   }
 
@@ -296,9 +297,50 @@ final class AppModel {
     if recent.count > 64 { recent.removeLast(recent.count - 64) }
   }
 
-  var candidates: [Candidate] {
-    // While a switch is in flight its target is "current" and the stage it left is most recent.
-    let currentID = pendingTarget ?? committedCentre
+  /// While a switch is in flight its target is "current" and the stage it left is most recent.
+  var candidates: [Candidate] { candidates(current: pendingTarget ?? committedCentre) }
+
+  /// The switcher's list as it opens. The last snapshot can be a second or two behind (a window
+  /// just closed, Stage Manager still animating), so stages whose windows no longer exist are
+  /// left out, and the current stage is the one just switched to, else the frontmost app's.
+  func switcherCandidates() -> [Candidate] {
+    let alive = Self.existingWindows(stages.flatMap { $0.stage.windows.map(\.id) })
+    let gone = Set(stages.filter { s in !s.stage.windows.contains { alive.contains($0.id) } }.map(\.id))
+    var current = pendingTarget ?? provisionalCurrent ?? committedCentre
+    if current.map(gone.contains) ?? true { current = frontmostStage(excluding: gone) }
+    return candidates(current: current).filter { !gone.contains($0.id) }
+  }
+
+  /// Called after each committed snapshot (the open switcher refreshes).
+  @ObservationIgnored var onCommitted: (() -> Void)?
+
+  /// Which of these CG windows still exist (a cheap lookup of just these IDs).
+  private static func existingWindows(_ ids: [UInt32]) -> Set<UInt32> {
+    guard !ids.isEmpty else { return [] }
+    var values: [UnsafeRawPointer?] = ids.map { UnsafeRawPointer(bitPattern: UInt($0)) }
+    guard let array = CFArrayCreate(kCFAllocatorDefault, &values, values.count, nil),
+          let info = CGWindowListCreateDescriptionFromArray(array) as? [[String: Any]]
+    else { return Set(ids) }   // can't tell: assume they all do
+    return Set(info.compactMap { ($0[kCGWindowNumber as String] as? Int).map { UInt32($0) } })
+  }
+
+  /// The stage holding the frontmost app's front window.
+  private func frontmostStage(excluding gone: Set<UUID>) -> UUID? {
+    guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier else { return nil }
+    let mine = stages.filter { !gone.contains($0.id) }
+      .flatMap { s in s.stage.windows.filter { $0.pid == pid }.map { (window: $0.id, stage: s.id) } }
+    guard let first = mine.first else { return nil }
+    if Set(mine.map(\.stage)).count == 1 { return first.stage }
+    // Several stages of this app: the one with its frontmost on-screen window.
+    let onScreen = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+    for d in onScreen {
+      guard let n = d[kCGWindowNumber as String] as? Int else { continue }
+      if let hit = mine.first(where: { $0.window == UInt32(n) }) { return hit.stage }
+    }
+    return first.stage
+  }
+
+  private func candidates(current currentID: UUID?) -> [Candidate] {
     let rank = Dictionary(uniqueKeysWithValues: recent.enumerated().map { ($1, $0) })
     let now = Date()
     return stages.map { s in
@@ -474,7 +516,7 @@ extension IdentifiedStage {
     var seen = Set<Int32>()
     return stage.windows.compactMap { w in
       guard seen.insert(w.pid).inserted else { return nil }
-      return IconCache.icon(for: w.pid)
+      return IconCache.icon(for: w.pid, bundleID: w.bundleID)
     }
   }
 }
@@ -534,9 +576,12 @@ enum ShortcutSettings {
 enum IconCache {
   private static var icons: [Int32: NSImage] = [:]
 
-  static func icon(for pid: Int32) -> NSImage? {
+  static func icon(for pid: Int32, bundleID: String? = nil) -> NSImage? {
     if let icon = icons[pid] { return icon }
+    // An app that just quit (System Settings does when its last window closes) has no running
+    // process left to ask: use its bundle's icon.
     let icon = NSRunningApplication(processIdentifier: pid)?.icon
+      ?? bundleID.flatMap { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) }.map { NSWorkspace.shared.icon(forFile: $0.path) }
     icons[pid] = icon
     return icon
   }

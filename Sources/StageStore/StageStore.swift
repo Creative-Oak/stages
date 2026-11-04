@@ -156,7 +156,7 @@ public final class StageStore {
     }
     lastReasons = reasons
     prune(at: t, onScreen: Set(reasons.keys))   // first, so freed keys are reused at once
-    assignAuto(onScreen: result.map(\.id))
+    assignAuto(onScreen: result.map(\.id), at: t)
     for i in result.indices { if let r = records[result[i].id] { result[i].record = r } }
     save()
     return result
@@ -284,7 +284,7 @@ public final class StageStore {
   }
 
   /// Assigning a slot takes it away from whichever record had it (that one gets the next free
-  /// key on the next snapshot, if it's on screen).
+  /// key on the next snapshot, if it's on screen). A chosen key is held for good.
   public func setSlot(_ id: UUID, _ slot: String?) {
     let slot = slot?.lowercased()
     precondition(slot.map(SlotKeys.isValid) ?? true, "slot must be one of 1–9, 0, a–z")
@@ -294,16 +294,45 @@ public final class StageStore {
     update(id) { $0.slot = slot; $0.autoSlot = false }
   }
 
-  /// Gives each on-screen record without one the lowest free slot key, and an ink: the one in
-  /// least use on screen (ties in palette order). Both marked auto.
-  private func assignAuto(onScreen ids: [UUID]) {
-    var taken = Set(records.values.compactMap(\.slot))
+  /// How long a closed stage's automatic key stays reserved: long enough for an app relaunch or
+  /// a regroup to get it back, short enough that keys don't pile up behind closed stages.
+  public static let slotGrace: TimeInterval = 60
+
+  /// Who held each key at the last assignment (in memory; breaks ties between claimants).
+  private var keyHolders: [String: UUID] = [:]
+
+  /// Slot keys: a key you chose, or any key of a stage you customised (named, inked), is held for
+  /// good. An automatic key is held while its stage is on screen and for `slotGrace` after; then
+  /// the next new stage may take it. A stage that comes back gets its remembered key if nobody
+  /// took it, else a new one. A key never moves while its stage is open.
+  /// Each on-screen record without a key gets the lowest free one, and an ink: the one in least
+  /// use on screen (ties in palette order). Both marked auto.
+  private func assignAuto(onScreen ids: [UUID], at t: Date) {
+    let onScreen = Set(ids)
+    func holds(_ r: StageRecord) -> Bool {
+      onScreen.contains(r.id) || r.isCustomised || t.timeIntervalSince(r.lastSeen) <= Self.slotGrace
+    }
+    // Claimants in priority order: chosen keys, then whoever held the key last time, then the
+    // most recently seen.
+    let claimants = records.values.filter { $0.slot != nil && holds($0) }.sorted { a, b in
+      let pa = (a.autoSlot ? 1 : 0, keyHolders[a.slot!] == a.id ? 0 : 1), pb = (b.autoSlot ? 1 : 0, keyHolders[b.slot!] == b.id ? 0 : 1)
+      if pa != pb { return pa < pb }
+      return (a.lastSeen, b.createdAt) > (b.lastSeen, a.createdAt)
+    }
+    var holder: [String: UUID] = [:]
+    for r in claimants {
+      if holder[r.slot!] == nil { holder[r.slot!] = r.id } else { records[r.id]?.slot = nil }
+    }
+    // A remembered key someone else now holds is gone for good.
+    for (id, r) in records where r.slot != nil && holder[r.slot!] != nil && holder[r.slot!] != id {
+      records[id]?.slot = nil
+    }
     var inkUse: [Ink: Int] = Dictionary(uniqueKeysWithValues: Ink.allCases.map { ($0, 0) })
     for id in ids { if let ink = records[id]?.ink { inkUse[ink, default: 0] += 1 } }
     for id in ids {
       guard var r = records[id] else { continue }
-      if r.slot == nil, let key = SlotKeys.all.first(where: { !taken.contains($0) }) {
-        r.slot = key; r.autoSlot = true; taken.insert(key)
+      if r.slot == nil, let key = SlotKeys.all.first(where: { holder[$0] == nil }) {
+        r.slot = key; r.autoSlot = true; holder[key] = id
       }
       if r.ink == nil {
         let ink = Ink.allCases.min { (inkUse[$0]!, Ink.allCases.firstIndex(of: $0)!) < (inkUse[$1]!, Ink.allCases.firstIndex(of: $1)!) }!
@@ -311,6 +340,7 @@ public final class StageStore {
       }
       records[id] = r
     }
+    keyHolders = holder
   }
 
   private func update(_ id: UUID, _ change: (inout StageRecord) -> Void) {

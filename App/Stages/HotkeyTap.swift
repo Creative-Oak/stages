@@ -32,11 +32,22 @@ final class HotkeyTap {
   private enum Key {
     static let tab: Int64 = 48, escape: Int64 = 53, returnKey: Int64 = 36, keypadEnter: Int64 = 76
     static let delete: Int64 = 51, left: Int64 = 123, right: Int64 = 124, down: Int64 = 125, up: Int64 = 126
+    /// ⌘W, ⌘Q, ⌘M, ⌘H close, quit, minimise or hide: the stages change, so look sooner.
+    static let windowChanging: Set<Int64> = [13, 12, 46, 4]
   }
 
   init(model: AppModel, panel: SwitcherPanel) {
     self.model = model
     self.panel = panel
+    model.onCommitted = { [weak self] in self?.refreshSession() }
+  }
+
+  /// A newer snapshot while the switcher is open: drop stages that closed, keep the rest in place.
+  private func refreshSession() {
+    guard var s = session else { return }
+    s.refresh(model.switcherCandidates())
+    session = s
+    if panelShown { panel.show(s) }
   }
 
   /// Installs the tap now, or as soon as Accessibility is granted.
@@ -140,8 +151,10 @@ final class HotkeyTap {
     let others: CGEventFlags = [.maskAlternate, .maskControl, .maskCommand]
     let held = flags.intersection(others)
 
+    if held == .maskCommand, Key.windowChanging.contains(key) { later { self.model.pokePoller() } }
+
     if key == Key.tab, held == modifier.flag {
-      let candidates = model.candidates
+      let candidates = model.switcherCandidates()
       guard candidates.count > 1 else { return false }
       let s = SwitcherSession(candidates: candidates)
       session = s

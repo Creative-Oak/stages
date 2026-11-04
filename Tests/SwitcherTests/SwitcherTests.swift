@@ -145,3 +145,35 @@ private func c(_ name: String?, _ apps: [String], _ pos: Candidate.Position = .s
     #expect(w.step(1, live: [a]) == nil)
   }
 }
+
+@Suite struct SwitcherRefreshTests {
+  @Test func aClosedStageDropsOutAndTheSelectionStays() {
+    let now = c("Now", ["Claude"], .centre, active: 10)
+    let closed = c(nil, ["System Settings"], .strip, active: 9)
+    let mail = c(nil, ["Mail"], .strip, active: 8)
+    var s = SwitcherSession(candidates: [now, closed, mail])
+    s.step(1)   // on Mail
+    #expect(s.selected?.id == mail.id)
+    s.refresh([now, mail])
+    #expect(s.all.map(\.id) == [now.id, mail.id])
+    #expect(s.selected?.id == mail.id)
+  }
+
+  @Test func whenTheSelectedStageClosesTheSelectionStaysInPlace() {
+    let now = c("Now", ["Claude"], .centre, active: 10)
+    let closed = c(nil, ["Calendar"], .strip, active: 9)
+    let mail = c(nil, ["Mail"], .strip, active: 8)
+    var s = SwitcherSession(candidates: [now, closed, mail])
+    #expect(s.selected?.id == closed.id)
+    s.refresh([now, mail])
+    #expect(s.selected?.id == mail.id)
+  }
+
+  @Test func newStagesJoinAtTheEndWithoutReshuffling() {
+    let a = c("A", ["A"], .centre, active: 10), b = c("B", ["B"], .strip, active: 9)
+    var s = SwitcherSession(candidates: [a, b])
+    let fresh = c("New", ["Notes"], .strip, active: 11)
+    s.refresh([a, b, fresh])
+    #expect(s.all.map(\.name) == ["A", "B", "New"])
+  }
+}
