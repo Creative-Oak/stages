@@ -62,11 +62,33 @@ final class AppModel {
   /// raises that app's window, and it's the top icon in the switcher.
   @ObservationIgnored private var stageFocus: [UUID: Int32] = [:]
 
+  /// After a switch lands, Stage Manager sometimes brings another app of the stage forward on
+  /// its own, about a second later (seen 2026-11-04: Claude raised, then Finder activated with no
+  /// input). For a short while, such an activation without user input is undone.
+  @ObservationIgnored private var focusGuard: (stage: UUID, window: StageWindow, since: ContinuousClock.Instant)?
+  private static let focusGuardFor: Duration = .milliseconds(2500)
+  /// Last key press or click anywhere (from the event tap).
+  @ObservationIgnored private var lastUserInput = ContinuousClock.now - .seconds(60)
+  func noteUserInput() { lastUserInput = .now }
+
+  /// True when `pid` coming forward now is Stage Manager's doing and was undone.
+  private func undoSystemFocus(_ pid: Int32?) -> Bool {
+    guard let g = focusGuard, let pid, ContinuousClock.now - g.since < Self.focusGuardFor else { return false }
+    guard pid != g.window.pid, lastUserInput < g.since, committedCentre == g.stage,
+          stages.first(where: { $0.id == g.stage })?.stage.windows.contains(where: { $0.pid == pid }) == true else { return false }
+    Self.log.notice("focus: \(NSRunningApplication(processIdentifier: pid)?.localizedName ?? "?", privacy: .public) came forward with no input after a switch; restoring \(g.window.owner, privacy: .public)")
+    Task { _ = await StageActivator.raise(g.window, appInOneStage: true) }
+    return true
+  }
+
   private func noteFocus() {
     guard pendingTarget == nil, !steppingActive,
           let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier,
           let centre = stages.first(where: { $0.stage.position == .centre }),
           centre.stage.windows.contains(where: { $0.pid == pid }) else { return }
+    if stageFocus[centre.id] != pid {
+      Self.log.notice("focus: stage \(centre.id.uuidString.prefix(8), privacy: .public) → \(NSRunningApplication(processIdentifier: pid)?.localizedName ?? "?", privacy: .public)")
+    }
     stageFocus[centre.id] = pid
   }
 
@@ -79,6 +101,7 @@ final class AppModel {
 
   private func activated(_ pid: Int32?) {
     activatedAt = .now
+    if undoSystemFocus(pid) { return }
     if let pid { appRecency.removeAll { $0 == pid }; appRecency.insert(pid, at: 0); if appRecency.count > 64 { appRecency.removeLast() } }
     if let a = awaitingActivation, a.pid == pid {
       Self.log.notice("switch: frontmost after \(Self.ms(ContinuousClock.now - a.since)) ms")
@@ -424,6 +447,8 @@ final class AppModel {
   /// window is raised; an app with windows in other stages gets the window raised first, so
   /// Stage Manager stays on this stage.
   func focusWindow(_ window: StageWindow) {
+    if let centre = committedCentre { stageFocus[centre] = window.pid }   // ⌘$ picked it here
+    focusGuard = nil
     let elsewhere = stages.contains { s in s.stage.position != .centre && s.stage.windows.contains { $0.pid == window.pid } }
     let started = ContinuousClock.now
     awaitingActivation = (window.pid, started)
@@ -507,7 +532,10 @@ final class AppModel {
   /// Raise the stage's most recent window, then check the next snapshots for the stage in the
   /// centre; retry once, then report.
   func switchTo(_ id: UUID) {
+    // Leaving a stage: whatever of it is in front now is its last-focused app (the surest moment).
+    if pendingTarget == nil, committedCentre != id { noteFocus() }
     guard let stage = stages.first(where: { $0.id == id }), let window = focusWindow(in: stage) else { return }
+    Self.log.notice("switch: to \(id.uuidString.prefix(8), privacy: .public) raising \(window.owner, privacy: .public) #\(window.id) (noted: \(self.stageFocus[id].flatMap { NSRunningApplication(processIdentifier: $0)?.localizedName } ?? "none", privacy: .public))")
     switchGeneration += 1
     let generation = switchGeneration
     guard committedCentre != id || pendingTarget != nil else { provisionalCurrent = nil; return }
@@ -544,6 +572,7 @@ final class AppModel {
             guard self.switchGeneration == generation else { return }
             self.pendingTarget = nil
             self.switchProblem = nil
+            self.focusGuard = (id, window, .now)
             // The stage holds only this window of the app: the AX window raised is this one.
             if outcome == .raised, stage.stage.windows.filter({ $0.pid == window.pid }).count == 1 {
               StageActivator.confirm(window.id)

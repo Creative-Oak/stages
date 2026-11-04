@@ -76,7 +76,8 @@ final class HotkeyTap {
 
   private func install() -> Bool {
     guard AXIsProcessTrusted() else { return false }
-    let types: [CGEventType] = [.keyDown, .keyUp, .flagsChanged]
+    // Mouse-downs only to know the user acted (passed straight through).
+    let types: [CGEventType] = [.keyDown, .keyUp, .flagsChanged, .leftMouseDown, .rightMouseDown]
     let mask = types.reduce(CGEventMask(0)) { $0 | (1 << $1.rawValue) } | (1 << Self.gestureType)
     guard let tap = CGEvent.tapCreate(
       tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap, eventsOfInterest: mask,
@@ -119,7 +120,11 @@ final class HotkeyTap {
       // Releasing the switcher's modifier switches.
       if session != nil, !event.flags.contains(ShortcutSettings.modifier.flag) { commit() }
       return Unmanaged.passUnretained(event)
+    case .leftMouseDown, .rightMouseDown:
+      model.noteUserInput()
+      return Unmanaged.passUnretained(event)
     case .keyDown:
+      model.noteUserInput()
       return keyDown(event) ? nil : Unmanaged.passUnretained(event)
     case .keyUp:
       return session != nil ? nil : Unmanaged.passUnretained(event)
