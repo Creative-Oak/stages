@@ -1,4 +1,5 @@
 import AppKit
+import StageReader
 import SwiftUI
 import StageStore
 import Switcher
@@ -10,6 +11,8 @@ struct NativeSwitcherView: View {
   let items: [Candidate]
   let selected: UUID?
   let model: AppModel
+  /// The in-stage switcher: items are this stage's windows (icon = the app's, no slot keys).
+  var windows: [UUID: StageWindow]? = nil
 
   static let iconSize: CGFloat = 68
   static let itemWidth: CGFloat = 84
@@ -53,12 +56,14 @@ struct NativeSwitcherView: View {
 
   private func subtitle(_ c: Candidate?) -> String {
     guard let c else { return " " }
+    if windows != nil { return c.titles.first ?? " " }
     let where_ = c.position == .overflow ? "In overflow" : c.position == .centre ? "On stage" : nil
     return [where_, c.titles.first].compactMap { $0 }.joined(separator: " · ")
   }
 
   private func item(_ c: Candidate, isSelected: Bool) -> some View {
-    let icons = stage(c)?.appIcons ?? []
+    let icons: [NSImage] = if let w = windows?[c.id] { [IconCache.icon(for: w.pid, bundleID: w.bundleID)].compactMap { $0 } }
+                           else { stage(c)?.appIcons ?? [] }
     return VStack(spacing: 3) {
       ZStack(alignment: .bottomTrailing) {
         if let front = icons.first {
@@ -78,12 +83,14 @@ struct NativeSwitcherView: View {
       }
       .frame(width: Self.iconSize + 6, height: Self.iconSize + 2)
       .opacity(c.position == .overflow ? 0.55 : 1)
-      HStack(spacing: 5) {
-        Circle().fill(stage(c)?.record.ink?.color ?? .secondary.opacity(0.4)).frame(width: 6, height: 6)
-        Text(c.slot?.uppercased() ?? "–")
-          .font(.system(size: 11, weight: .semibold, design: .rounded))
-          .monospacedDigit()
-          .foregroundStyle(isSelected ? .primary : .secondary)
+      if windows == nil {
+        HStack(spacing: 5) {
+          Circle().fill(stage(c)?.record.ink?.color ?? .secondary.opacity(0.4)).frame(width: 6, height: 6)
+          Text(c.slot?.uppercased() ?? "–")
+            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .monospacedDigit()
+            .foregroundStyle(isSelected ? .primary : .secondary)
+        }
       }
     }
     .padding(.vertical, 6)

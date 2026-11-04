@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+import StageReader
 import SwiftUI
 import Switcher
 
@@ -8,6 +9,8 @@ import Switcher
 final class SwitcherPanel {
   @Observable final class State {
     var session: SwitcherSession?
+    /// Set for the in-stage switcher: its items are windows, not stages.
+    var windows: [UUID: StageWindow]?
   }
 
   private let model: AppModel
@@ -21,8 +24,9 @@ final class SwitcherPanel {
     _ = panel.contentView?.fittingSize
   }
 
-  func show(_ session: SwitcherSession) {
+  func show(_ session: SwitcherSession, windows: [UUID: StageWindow]? = nil) {
     state.session = session
+    state.windows = windows
     if !panel.isVisible {
       position()
       panel.orderFrontRegardless()
@@ -32,6 +36,7 @@ final class SwitcherPanel {
   func hide() {
     panel.orderOut(nil)
     state.session = nil
+    state.windows = nil
   }
 
   private func position() {
@@ -69,7 +74,7 @@ struct SwitcherView: View {
 
   var body: some View {
     if let s = state.session {
-      NativeSwitcherView(items: s.visible, selected: s.selected?.id, model: model)
+      NativeSwitcherView(items: s.visible, selected: s.selected?.id, model: model, windows: state.windows)
     } else {
       // Built once at launch (prewarm) before any session exists.
       NativeSwitcherView(items: [], selected: nil, model: model)

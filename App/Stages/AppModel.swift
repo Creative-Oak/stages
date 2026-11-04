@@ -322,6 +322,35 @@ final class AppModel {
     return candidates(current: current).filter { !gone.contains($0.id) }
   }
 
+  /// The in-stage switcher's list (modifier + `): the current stage's windows front to back, from
+  /// a quick read of its own (so it's right even mid-animation or just after a close), as
+  /// switcher candidates (most recent = front, so the session opens on the previous window).
+  func stageWindowCandidates() -> (candidates: [Candidate], windows: [UUID: StageWindow]) {
+    let fresh = StageReader.read(LiveWindowSource(readTiles: false).capture())
+    guard fresh.isAvailable, let centre = fresh.stages.first(where: { $0.position == .centre }) else { return ([], [:]) }
+    let now = Date()
+    var windows: [UUID: StageWindow] = [:]
+    let candidates = centre.windows.sorted { $0.z < $1.z }.enumerated().map { i, w -> Candidate in
+      let id = Self.uuid(forWindow: w.id)
+      windows[id] = w
+      return Candidate(id: id, name: w.owner, apps: [w.owner], titles: [w.title].compactMap { $0 },
+                       position: i == 0 ? .centre : .strip, order: i, slot: nil,
+                       lastActive: now.addingTimeInterval(-Double(i)), createdAt: now)
+    }
+    return (candidates, windows)
+  }
+
+  private static func uuid(forWindow id: UInt32) -> UUID {
+    UUID(uuidString: String(format: "57A6E500-0000-4000-8000-%012X", id))!
+  }
+
+  /// Bring one window of the current stage forward (the in-stage switcher). The window is raised
+  /// before its app is activated, so Stage Manager stays on this stage even when the app has
+  /// windows in others.
+  func focusWindow(_ window: StageWindow) {
+    Task { _ = await StageActivator.raise(window, appInOneStage: false) }
+  }
+
   /// Called after each committed snapshot (the open switcher refreshes).
   @ObservationIgnored var onCommitted: (() -> Void)?
 

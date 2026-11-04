@@ -19,6 +19,8 @@ final class HotkeyTap {
   private var source: CFRunLoopSource?
   private var retry: Timer?
   private var session: SwitcherSession?
+  /// Set while the in-stage switcher (modifier + `) is open: its items are windows.
+  private var windowItems: [UUID: StageWindow]?
   private var swipes = SwipeDetector()
   /// The panel appears only if the modifier is still held after this, like ⌘⇥: a quick tap
   /// switches without flashing anything.
@@ -30,7 +32,7 @@ final class HotkeyTap {
   private static let log = Logger(subsystem: "dk.creativeoak.stages", category: "hotkeys")
 
   private enum Key {
-    static let tab: Int64 = 48, escape: Int64 = 53, returnKey: Int64 = 36, keypadEnter: Int64 = 76
+    static let tab: Int64 = 48, grave: Int64 = 50, escape: Int64 = 53, returnKey: Int64 = 36, keypadEnter: Int64 = 76
     static let delete: Int64 = 51, left: Int64 = 123, right: Int64 = 124, down: Int64 = 125, up: Int64 = 126
     /// ⌘W, ⌘Q, ⌘M, ⌘H close, quit, minimise or hide: the stages change, so look sooner.
     static let windowChanging: Set<Int64> = [13, 12, 46, 4]
@@ -44,7 +46,7 @@ final class HotkeyTap {
 
   /// A newer snapshot while the switcher is open: drop stages that closed, keep the rest in place.
   private func refreshSession() {
-    guard var s = session else { return }
+    guard windowItems == nil, var s = session else { return }
     s.refresh(model.switcherCandidates())
     session = s
     if panelShown { panel.show(s) }
@@ -127,7 +129,7 @@ final class HotkeyTap {
 
     if var s = session {
       switch key {
-      case Key.tab: s.step(shift ? -1 : 1)
+      case Key.tab, Key.grave: s.step(shift ? -1 : 1)
       case Key.down, Key.right: s.step(1)
       case Key.up, Key.left: s.step(-1)
       case Key.escape: cancel(); return true
@@ -143,7 +145,8 @@ final class HotkeyTap {
       }
       session = s
       // Any further key shows the panel at once (and updates it).
-      later { self.panelShown = true; self.panel.show(s) }
+      let items = windowItems
+      later { self.panelShown = true; self.panel.show(s, windows: items) }
       return true
     }
 
@@ -153,22 +156,20 @@ final class HotkeyTap {
 
     if held == .maskCommand, Key.windowChanging.contains(key) { later { self.model.pokePoller() } }
 
+    if key == Key.grave, held == modifier.flag {
+      // The in-stage switcher: this stage's windows. Swallowed even with one window, so the
+      // modifier's own ` shortcut (⌘`, which under Stage Manager swaps stages' windows) never fires.
+      let (candidates, windows) = model.stageWindowCandidates()
+      guard candidates.count > 1 else { return true }
+      open(SwitcherSession(candidates: candidates), windows: windows)
+      return true
+    }
+
     if key == Key.tab, held == modifier.flag {
       let candidates = model.switcherCandidates()
       guard candidates.count > 1 else { return false }
-      let s = SwitcherSession(candidates: candidates)
-      session = s
-      panelShown = false
-      panelGeneration += 1
-      let generation = panelGeneration
+      open(SwitcherSession(candidates: candidates), windows: nil)
       later { self.model.prewarmSwitching(); self.model.pokePoller() }
-      DispatchQueue.main.asyncAfter(deadline: .now() + Self.panelDelay) { [weak self] in
-        MainActor.assumeIsolated {
-          guard let self, let current = self.session, self.panelGeneration == generation, !self.panelShown else { return }
-          self.panelShown = true
-          self.panel.show(current)
-        }
-      }
       return true
     }
 
@@ -180,6 +181,22 @@ final class HotkeyTap {
       }
     }
     return false
+  }
+
+  /// Starts a session; the panel appears only if the modifier is still held after `panelDelay`.
+  private func open(_ s: SwitcherSession, windows: [UUID: StageWindow]?) {
+    session = s
+    windowItems = windows
+    panelShown = false
+    panelGeneration += 1
+    let generation = panelGeneration
+    DispatchQueue.main.asyncAfter(deadline: .now() + Self.panelDelay) { [weak self] in
+      MainActor.assumeIsolated {
+        guard let self, let current = self.session, self.panelGeneration == generation, !self.panelShown else { return }
+        self.panelShown = true
+        self.panel.show(current, windows: self.windowItems)
+      }
+    }
   }
 
   private func swipe(_ event: CGEvent) {
@@ -194,12 +211,15 @@ final class HotkeyTap {
 
   private func commit(to id: UUID? = nil) {
     let target = id ?? session?.selected?.id
+    let window = target.flatMap { windowItems?[$0] }
+    let isWindows = windowItems != nil
     session = nil
+    windowItems = nil
     panelGeneration += 1
     let wasShown = panelShown
     panelShown = false
     later {
-      if let target { self.model.switchTo(target) }
+      if let window { self.model.focusWindow(window) } else if !isWindows, let target { self.model.switchTo(target) }
       if wasShown { self.panel.hide() }
     }
   }
@@ -212,6 +232,7 @@ final class HotkeyTap {
 
   private func cancel() {
     session = nil
+    windowItems = nil
     panelGeneration += 1
     panelShown = false
     later { self.panel.hide() }
