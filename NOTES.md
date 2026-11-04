@@ -60,6 +60,10 @@ Machine: MacBook, single 1470×956 display, macOS 27.2 (26B123), Xcode 27.2 (fro
 | Swipe spike: a listen-only `CGEventTap` (Accessibility) receives CG type 29 (gesture) events for all trackpad touches, and `NSEvent.allTouches()` on them gives finger count and normalized positions (public API). 3-finger left: x 0.74→0.39; right: 0.43→0.73; 4-finger up: y 0.35→0.66; 4-finger right: x 0.46→0.65. | verified 2026-11-04 (`stagesctl gestures`, Magnus's swipes) |
 | The same swipes also produce CG type 30 events, the Dock's gesture events (Spaces, full-screen apps, Mission Control). AppKit can't convert them and their fields are undocumented; suppressing or parsing them would be SPI. So a Stages swipe and the system's swipe both fire unless the system gesture is turned off (Trackpad → More Gestures) or uses the other finger count. | verified 2026-11-04 |
 
+| Swipes (opt-in, Settings): `SwipeDetector` steps once per horizontal swipe of the configured finger count (≥ 18 % of trackpad width, mostly horizontal); left = next. A swipe with more fingers than configured is ignored until all fingers lift. Tested on Magnus's recorded samples. | built 2026-11-04; **to verify live** |
+| Overflow working as a switch target (raising a window of an overflow stage brings that whole stage forward). | verified 2026-11-04 (Magnus) |
+| Stage Manager's animation (~0.7 s) dominates switch latency. WindowManager's binary contains an `animationSpeed=` log string, and one community source lists an `AnimationSpeed` key in `com.apple.WindowManager`, but no values or semantics are documented. Stages doesn't write it. | strings checked 2026-11-04 (macOS 27.2); key behaviour **unknown** |
+
 ## Performance
 
 - 2026-11-03, release build of `stagesctl watch`: 0.84 % of one core over the first 30 s (fast

@@ -7,6 +7,8 @@ import Switcher
 ///   hold ⌥ (configurable) + ⇥  open the switcher on the previous stage; ⇥/⇧⇥ or ↑/↓ step;
 ///                              type to filter; release ⌥ to switch; Esc cancels; ↩ switches.
 ///   ⌃⌥ ←/↑ and →/↓            previous / next stage in the stable cycle.
+///   3- or 4-finger swipe        (opt-in) left = next, right = previous; never swallowed, so
+///                              macOS's own swipe for that finger count must be turned off.
 /// Keys are swallowed only while the switcher is open or when a shortcut matches.
 final class HotkeyTap {
   private let model: AppModel
@@ -15,6 +17,9 @@ final class HotkeyTap {
   private var source: CFRunLoopSource?
   private var retry: Timer?
   private var session: SwitcherSession?
+  private var swipes = SwipeDetector()
+  /// CG event type for trackpad gesture events (NSEvent.EventType.gesture); not in CGEventType.
+  private static let gestureType: UInt32 = 29
   private static let log = Logger(subsystem: "dk.creativeoak.stages", category: "hotkeys")
 
   private enum Key {
@@ -45,7 +50,7 @@ final class HotkeyTap {
   private func install() -> Bool {
     guard AXIsProcessTrusted() else { return false }
     let types: [CGEventType] = [.keyDown, .keyUp, .flagsChanged]
-    let mask = types.reduce(CGEventMask(0)) { $0 | (1 << $1.rawValue) }
+    let mask = types.reduce(CGEventMask(0)) { $0 | (1 << $1.rawValue) } | (1 << Self.gestureType)
     guard let tap = CGEvent.tapCreate(
       tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap, eventsOfInterest: mask,
       callback: { _, type, event, refcon in
@@ -75,6 +80,10 @@ final class HotkeyTap {
   // MARK: Events
 
   private func handle(_ type: CGEventType, _ event: CGEvent) -> Unmanaged<CGEvent>? {
+    if type.rawValue == Self.gestureType {
+      swipe(event)
+      return Unmanaged.passUnretained(event)
+    }
     switch type {
     case .tapDisabledByTimeout, .tapDisabledByUserInput:
       if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
@@ -140,6 +149,16 @@ final class HotkeyTap {
       }
     }
     return false
+  }
+
+  private func swipe(_ event: CGEvent) {
+    guard ShortcutSettings.swipesEnabled, let e = NSEvent(cgEvent: event) else { return }
+    swipes.fingers = ShortcutSettings.swipeFingers
+    let touches = e.allTouches().filter { $0.phase != .ended && $0.phase != .cancelled }
+    let n = touches.count
+    let x = n == 0 ? 0 : touches.map { Double($0.normalizedPosition.x) }.reduce(0, +) / Double(n)
+    let y = n == 0 ? 0 : touches.map { Double($0.normalizedPosition.y) }.reduce(0, +) / Double(n)
+    if let step = swipes.feed(fingers: n, x: x, y: y) { model.step(step) }
   }
 
   private func commit() {

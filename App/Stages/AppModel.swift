@@ -282,6 +282,13 @@ enum ShortcutSettings {
 
   static let modifierKey = "switcherModifier"
   static let arrowsKey = "arrowsEnabled"
+  static let swipesKey = "swipesEnabled"
+  static let swipeFingersKey = "swipeFingers"
+
+  /// Horizontal 3- or 4-finger swipes for previous/next stage. Off by default: macOS uses
+  /// these swipes too, and Stages can't stop it.
+  static var swipesEnabled: Bool { UserDefaults.standard.bool(forKey: swipesKey) }
+  static var swipeFingers: Int { UserDefaults.standard.integer(forKey: swipeFingersKey) == 4 ? 4 : 3 }
 
   static var modifier: Modifier {
     UserDefaults.standard.string(forKey: modifierKey).flatMap(Modifier.init) ?? .option

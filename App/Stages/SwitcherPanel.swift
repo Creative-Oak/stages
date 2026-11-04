@@ -90,6 +90,23 @@ struct SwitcherView: View {
     .overlay(Rectangle().strokeBorder(.separator, lineWidth: 1))
   }
 
+  /// Where the stage is now. Overflow stages aren't visible anywhere, so their tag is drawn
+  /// dashed (the design system's mark for "not shown"); the centre stage is plain "now".
+  @ViewBuilder private func positionTag(_ p: Candidate.Position) -> some View {
+    switch p {
+    case .centre:
+      Text("now").font(Theme.mono(10.5)).foregroundStyle(.secondary).frame(width: 68, alignment: .trailing)
+    case .strip:
+      Text("strip").font(Theme.mono(10.5)).foregroundStyle(.tertiary).frame(width: 68, alignment: .trailing)
+    case .overflow:
+      Text("overflow")
+        .font(Theme.mono(10.5, .medium))
+        .padding(.horizontal, 5).padding(.vertical, 1)
+        .overlay(Rectangle().strokeBorder(.primary.opacity(0.6), style: StrokeStyle(lineWidth: 1, dash: [3, 2])))
+        .frame(width: 68, alignment: .trailing)
+    }
+  }
+
   private func row(_ c: Candidate, selected: Bool) -> some View {
     let stage = model.stages.first { $0.id == c.id }
     return HStack(alignment: .center, spacing: 10) {
@@ -109,8 +126,7 @@ struct SwitcherView: View {
           Image(nsImage: icon).resizable().frame(width: 22, height: 22)
         }
       }
-      Text(c.position == .centre ? "now" : c.position == .overflow ? "overflow" : "")
-        .font(Theme.mono(10)).foregroundStyle(.tertiary).frame(width: 52, alignment: .trailing)
+      positionTag(c.position)
       if let slot = c.slot {
         Text("\(slot)").font(Theme.mono(11, .medium)).frame(width: 18, height: 18)
           .overlay(Rectangle().strokeBorder(.primary.opacity(0.5), lineWidth: 1))

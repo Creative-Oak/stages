@@ -74,3 +74,41 @@ private func c(_ name: String?, _ apps: [String], _ pos: Candidate.Position = .s
     #expect(s.selected == nil)
   }
 }
+
+@Suite struct SwipeDetectorTests {
+  /// Feeds (fingers, x, y) samples; returns the steps fired.
+  func run(_ d: inout SwipeDetector, _ samples: [(Int, Double, Double)]) -> [Int] {
+    samples.compactMap { d.feed(fingers: $0.0, x: $0.1, y: $0.2) }
+  }
+
+  // Samples from Magnus's recording (`stagesctl gestures`, 2026-11-04 10:22–10:23).
+  let threeLeft: [(Int, Double, Double)] = [(1, 0.56, 0.53), (3, 0.74, 0.58), (3, 0.64, 0.59), (3, 0.56, 0.59),
+                                            (3, 0.47, 0.59), (3, 0.39, 0.56), (0, 0, 0)]
+  let threeRight: [(Int, Double, Double)] = [(1, 0.24, 0.41), (2, 0.33, 0.51), (3, 0.43, 0.52), (3, 0.53, 0.51),
+                                             (3, 0.64, 0.53), (3, 0.73, 0.53), (1, 0.63, 0.53), (0, 0, 0)]
+  let fourUp: [(Int, Double, Double)] = [(4, 0.54, 0.35), (4, 0.55, 0.45), (4, 0.55, 0.55), (4, 0.55, 0.66),
+                                         (2, 0.77, 0.75), (0, 0, 0)]
+  let fourRight: [(Int, Double, Double)] = [(4, 0.46, 0.54), (4, 0.56, 0.56), (4, 0.65, 0.59), (3, 0.60, 0.65),
+                                            (3, 0.70, 0.68), (1, 0.55, 0.66), (0, 0, 0)]
+
+  @Test func threeFingerSwipesStepOnce() {
+    var d = SwipeDetector(fingers: 3)
+    #expect(run(&d, threeLeft) == [1])
+    #expect(run(&d, threeRight) == [-1])
+  }
+
+  @Test func otherFingerCountsAndVerticalSwipesAreIgnored() {
+    var three = SwipeDetector(fingers: 3)
+    // A 4-finger swipe lifting through 3 fingers must not count as a 3-finger one.
+    #expect(run(&three, fourRight) == [])
+    var four = SwipeDetector(fingers: 4)
+    #expect(run(&four, fourUp) == [])
+    #expect(run(&four, threeLeft) == [])
+    #expect(run(&four, fourRight) == [-1])
+  }
+
+  @Test func shortMovementsDoNotCount() {
+    var d = SwipeDetector(fingers: 3)
+    #expect(run(&d, [(3, 0.5, 0.5), (3, 0.55, 0.5), (3, 0.45, 0.5), (0, 0, 0)]) == [])
+  }
+}

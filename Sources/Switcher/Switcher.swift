@@ -106,3 +106,33 @@ public struct SwitcherSession: Sendable {
     selection = query.isEmpty && visible.count > 1 ? 1 : 0
   }
 }
+
+/// Turns trackpad touch samples (finger count, average normalized position) into one step per
+/// horizontal swipe. Fingers moving left means "next", like swiping between Spaces.
+public struct SwipeDetector: Sendable {
+  public var fingers: Int
+  /// Horizontal travel, as a share of the trackpad width, before a swipe counts.
+  public var threshold: Double
+  private var start: (x: Double, y: Double)?
+  private var fired = false
+  /// More fingers than configured touched down: ignore until all are lifted.
+  private var blocked = false
+
+  public init(fingers: Int = 3, threshold: Double = 0.18) {
+    self.fingers = fingers; self.threshold = threshold
+  }
+
+  /// +1 (next), -1 (previous) once per swipe, else nil.
+  public mutating func feed(fingers count: Int, x: Double, y: Double) -> Int? {
+    if count == 0 { start = nil; fired = false; blocked = false; return nil }
+    if blocked { return nil }
+    if count > fingers { blocked = true; start = nil; return nil }
+    guard count == fingers else { return nil }   // landing or lifting
+    guard let s = start else { start = (x, y); return nil }
+    guard !fired else { return nil }
+    let dx = x - s.x, dy = y - s.y
+    guard abs(dx) >= threshold, abs(dx) >= 2 * abs(dy) else { return nil }
+    fired = true
+    return dx < 0 ? 1 : -1
+  }
+}

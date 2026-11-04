@@ -4,6 +4,8 @@ import SwiftUI
 struct SettingsView: View {
   @AppStorage(ShortcutSettings.modifierKey) private var modifier = ShortcutSettings.Modifier.option.rawValue
   @AppStorage(ShortcutSettings.arrowsKey) private var arrows = true
+  @AppStorage(ShortcutSettings.swipesKey) private var swipes = false
+  @AppStorage(ShortcutSettings.swipeFingersKey) private var fingers = 3
   @State private var trusted = Permissions.accessibility
   private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
@@ -20,6 +22,22 @@ struct SettingsView: View {
           .font(.callout).foregroundStyle(.secondary)
       } header: {
         Theme.label("Keyboard")
+      }
+      Section {
+        Toggle("Swipe left / right to switch stages", isOn: $swipes)
+        Picker("Fingers", selection: $fingers) {
+          Text("3 fingers").tag(3)
+          Text("4 fingers").tag(4)
+        }
+        .pickerStyle(.segmented)
+        .disabled(!swipes)
+        Text("Swiping left goes to the next stage, right to the previous one. macOS uses the same swipe to move between Spaces and full-screen apps, and Stages can't stop it: turn off “Swipe between full-screen applications” for \(fingers) fingers, or set it to the other count.")
+          .font(.callout).foregroundStyle(.secondary)
+        Button("Open Trackpad Settings…") {
+          if let u = URL(string: "x-apple.systempreferences:com.apple.Trackpad-Settings.extension") { NSWorkspace.shared.open(u) }
+        }
+      } header: {
+        Theme.label("Trackpad")
       }
       Section {
         LabeledContent("Accessibility") {
