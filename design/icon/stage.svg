@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Centre stage: a window, its title bar cut out as a thin band. Flat white; Icon Composer adds glass. -->
+  <path fill="#FFFFFF" fill-rule="evenodd" d="
+    M 446 236 H 780 A 74 74 0 0 1 854 310 V 714 A 74 74 0 0 1 780 788 H 446 A 74 74 0 0 1 372 714 V 310 A 74 74 0 0 1 446 236 Z
+    M 372 340 H 854 V 364 H 372 Z"/>
+</svg>
