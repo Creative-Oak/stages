@@ -6,7 +6,9 @@ private func parse(_ s: String) -> Result<Command, Command.ParseError> { Command
 
 @Suite struct CommandParseTests {
   @Test func switching() {
-    #expect(parse("stages://switch?slot=3") == .success(.switchToSlot(3)))
+    #expect(parse("stages://switch?slot=3") == .success(.switchToSlot("3")))
+    #expect(parse("stages://switch?slot=0") == .success(.switchToSlot("0")))
+    #expect(parse("stages://switch?slot=B") == .success(.switchToSlot("b")))
     #expect(parse("stages://switch?name=Swifttap") == .success(.switchToName("Swifttap")))
     #expect(parse("stages://switch?name=Lodestone%20Library") == .success(.switchToName("Lodestone Library")))
     let id = UUID()
@@ -22,7 +24,8 @@ private func parse(_ s: String) -> Result<Command, Command.ParseError> { Command
     #expect(parse("stages://name?value=") == .success(.rename(nil)))
     #expect(parse("stages://ink?value=Teal") == .success(.ink("teal")))
     #expect(parse("stages://ink?value=none") == .success(.ink(nil)))
-    #expect(parse("stages://slot?value=3") == .success(.slot(3)))
+    #expect(parse("stages://slot?value=3") == .success(.slot("3")))
+    #expect(parse("stages://slot?value=k") == .success(.slot("k")))
     #expect(parse("stages://slot?value=none") == .success(.slot(nil)))
     #expect(parse("stages://wake?name=Reading") == .success(.wake("Reading")))
     #expect(parse("stages://wake") == .failure(.missing("name")))
@@ -30,6 +33,7 @@ private func parse(_ s: String) -> Result<Command, Command.ParseError> { Command
 
   @Test func errors() {
     #expect(parse("stages://switch?slot=10") == .failure(.invalid("slot", "10")))
+    #expect(parse("stages://switch?slot=å") == .failure(.invalid("slot", "å")))
     #expect(parse("stages://switch") == .failure(.missing("slot, name or id")))
     #expect(parse("stages://fly") == .failure(.unknownCommand("fly")))
     #expect(parse("stages://name") == .failure(.missing("value")))

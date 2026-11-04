@@ -1,11 +1,13 @@
 import AppKit
 import CoreGraphics
 import os
+import StageReader
 import Switcher
 
 /// Global keyboard shortcuts through a `CGEventTap` (needs Accessibility):
 ///   hold ⌥ (configurable) + ⇥  open the switcher on the previous stage; ⇥/⇧⇥ or ↑/↓ step;
-///                              type to filter; release ⌥ to switch; Esc cancels; ↩ switches.
+///                              a stage's slot key (1–9, 0, a–z) goes straight there; release ⌥
+///                              to switch; Esc cancels; ↩ switches.
 ///   ⌃⌥ ←/↑ and →/↓            previous / next stage in the stable cycle.
 ///   3- or 4-finger swipe        (opt-in) left = next, right = previous; never swallowed, so
 ///                              macOS's own swipe for that finger count must be turned off.
@@ -119,13 +121,14 @@ final class HotkeyTap {
       case Key.up: s.step(-1)
       case Key.escape: cancel(); return true
       case Key.returnKey, Key.keypadEnter: commit(); return true
-      case Key.delete: s.backspace()
       default:
-        // Letters typed with the modifier held: use the unmodified character.
-        guard let chars = NSEvent(cgEvent: event)?.charactersIgnoringModifiers,
-              chars.unicodeScalars.allSatisfy({ CharacterSet.alphanumerics.union(.punctuationCharacters).union(.whitespaces).contains($0) }),
-              !chars.isEmpty else { return true }
-        s.type(chars.lowercased())
+        // A slot key, typed with the modifier held (so use the unmodified character): switch
+        // straight to that stage.
+        if let key = NSEvent(cgEvent: event)?.charactersIgnoringModifiers?.lowercased(),
+           SlotKeys.isValid(key), let target = s.candidate(slot: key) {
+          commit(to: target.id)
+        }
+        return true
       }
       session = s
       // Any further key shows the panel at once (and updates it).
@@ -176,14 +179,14 @@ final class HotkeyTap {
     if let step = swipes.feed(fingers: n, x: x, y: y) { later { self.model.step(step) } }
   }
 
-  private func commit() {
-    let target = session?.selected
+  private func commit(to id: UUID? = nil) {
+    let target = id ?? session?.selected?.id
     session = nil
     panelGeneration += 1
     let wasShown = panelShown
     panelShown = false
     later {
-      if let target { self.model.switchTo(target.id) }
+      if let target { self.model.switchTo(target) }
       if wasShown { self.panel.hide() }
     }
   }

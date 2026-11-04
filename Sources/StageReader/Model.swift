@@ -140,3 +140,14 @@ public struct Fixture: Codable, Sendable {
     return e
   }
 }
+
+/// Slot keys, in assignment order: 1–9, then 0, then a–z (36 in all). A stage's slot is the key
+/// that reaches it (switcher, Raycast Hyper+key).
+public enum SlotKeys {
+  public static let all: [String] = (1...9).map(String.init) + ["0"] + "abcdefghijklmnopqrstuvwxyz".map(String.init)
+
+  /// Position in assignment order; nil if not a slot key.
+  public static func index(of key: String) -> Int? { all.firstIndex(of: key.lowercased()) }
+
+  public static func isValid(_ key: String) -> Bool { index(of: key) != nil }
+}

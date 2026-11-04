@@ -48,47 +48,40 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
   private func render() {
     guard let button = item.button else { return }
     let title: String
-    let image: NSImage
+    var ink: NSColor?
+    var symbol = "squares.leading.rectangle"   // the system's Stage Manager glyph
     if let snapshot = model.snapshot, !snapshot.isAvailable {
       title = "Stages"
-      image = Self.swatch(nil, dashed: true)
+      symbol = "exclamationmark.triangle"
       button.toolTip = snapshot.unavailable?.message
     } else if let current = model.current {
       title = Self.truncate(current.title)
-      image = Self.swatch(current.record.ink?.nsColor, dashed: false)
+      ink = current.record.ink?.nsColor
       button.toolTip = current.windowTitles.first
     } else {
       title = model.snapshot == nil ? "Stages" : "Desktop"
-      image = Self.swatch(nil, dashed: false)
       button.toolTip = nil
     }
+    // A template symbol (follows the menu bar's light/dark), then the ink as a small dot and
+    // the name in the menu bar font.
+    let image = NSImage(systemSymbolName: symbol, accessibilityDescription: "Stages")?
+      .withSymbolConfiguration(.init(pointSize: 13, weight: .regular))
+    image?.isTemplate = true
     button.image = image
-    button.title = " " + title
-    button.font = .menuBarFont(ofSize: 0)
+    button.imagePosition = .imageLeading
+    let font = NSFont.menuBarFont(ofSize: 0)
+    let text = NSMutableAttributedString()
+    if let ink {
+      text.append(NSAttributedString(string: "  ●", attributes: [.foregroundColor: ink, .font: NSFont.systemFont(ofSize: 8),
+                                                              .baselineOffset: 1.5]))
+      text.append(NSAttributedString(string: " " + title, attributes: [.font: font]))
+    } else {
+      text.append(NSAttributedString(string: " " + title, attributes: [.font: font]))
+    }
+    button.attributedTitle = text
   }
 
   static func truncate(_ s: String) -> String {
     s.count <= maxTitleLength ? s : String(s.prefix(maxTitleLength - 1)) + "…"
-  }
-
-  /// A 9 pt ink square, or a hairline outline (template, so it follows the menu bar) when the
-  /// stage has no ink. Dashed when stages can't be read.
-  static func swatch(_ color: NSColor?, dashed: Bool) -> NSImage {
-    let side: CGFloat = 9
-    let image = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
-      if let color {
-        color.setFill()
-        rect.fill()
-      } else {
-        let path = NSBezierPath(rect: rect.insetBy(dx: 0.5, dy: 0.5))
-        path.lineWidth = 1
-        if dashed { path.setLineDash([2, 1.5], count: 2, phase: 0) }
-        NSColor.black.setStroke()
-        path.stroke()
-      }
-      return true
-    }
-    image.isTemplate = color == nil
-    return image
   }
 }

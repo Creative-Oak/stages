@@ -59,10 +59,10 @@ private func tempDir() -> URL {
   @Test func slotsAreUnique() {
     let store = StageStore(directory: nil)
     let s = store.reconcile(snapshot([stage([1]), stage([2])]))
-    store.setSlot(s[0].id, 3)
-    store.setSlot(s[1].id, 3)
+    store.setSlot(s[0].id, "3")
+    store.setSlot(s[1].id, "3")
     #expect(store.records[s[0].id]?.slot == nil)
-    #expect(store.records[s[1].id]?.slot == 3)
+    #expect(store.records[s[1].id]?.slot == "3")
   }
 
   @Test func centreUpdatesLastActive() {
@@ -81,10 +81,10 @@ private func tempDir() -> URL {
     let boot = Date(timeIntervalSince1970: 1_000)
     let a = StageStore(directory: dir, bootTime: boot)
     let id = a.reconcile(snapshot([stage([1, 2])]))[0].id
-    a.rename(id, to: "Lodestone"); a.setInk(id, .violet); a.setSlot(id, 1)
+    a.rename(id, to: "Lodestone"); a.setInk(id, .violet); a.setSlot(id, "1")
     let b = StageStore(directory: dir, bootTime: boot)
     let r = try #require(b.reconcile(snapshot([stage([2, 1])])).first?.record)
-    #expect(r.id == id && r.name == "Lodestone" && r.ink == .violet && r.slot == 1)
+    #expect(r.id == id && r.name == "Lodestone" && r.ink == .violet && r.slot == "1")
   }
 
   @Test func unavailableSnapshotChangesNothing() {
@@ -270,7 +270,7 @@ private func tempDir() -> URL {
     try Data(v1.utf8).write(to: dir.appendingPathComponent("stages.json"))
     let store = StageStore(directory: dir)
     let r = try #require(store.records.values.first)
-    #expect(r.name == "Old" && r.ink == .teal && r.slot == 2 && r.windowIDs == [11052])
+    #expect(r.name == "Old" && r.ink == .teal && r.slot == "2" && r.windowIDs == [11052])
     #expect(r.state == .active && r.fingerprint.isEmpty)
     #expect(!store.discardedStaleIDs)   // no boot time recorded: keep IDs
   }
@@ -449,7 +449,7 @@ private func tempDir() -> URL {
     let store = StageStore(directory: nil)
     let s = store.reconcile(snapshot([stage([1], .centre, apps: ["Ghostty"], titles: ["~/dev"]),
                                       stage([2], apps: ["Preview"], titles: ["paper.pdf"])]))
-    store.rename(s[1].id, to: "Reading"); store.setInk(s[1].id, .teal); store.setSlot(s[1].id, 2)
+    store.rename(s[1].id, to: "Reading"); store.setInk(s[1].id, .teal); store.setSlot(s[1].id, "2")
     store.attachDocuments([2: "file:///Users/m/paper.pdf"])
     // Preview's stage goes away; it is named, so it stays listed as absent.
     let later = store.reconcile(snapshot([stage([1], .centre, apps: ["Ghostty"], titles: ["~/dev"])]))
@@ -457,7 +457,7 @@ private func tempDir() -> URL {
     #expect(file.current == s[0].id)
     #expect(file.stages.map(\.position) == ["centre", "absent"])
     let reading = file.stages[1]
-    #expect(reading.name == "Reading" && reading.ink == "teal" && reading.slot == 2)
+    #expect(reading.name == "Reading" && reading.ink == "teal" && reading.slot == "2")
     #expect(reading.lastTitles == ["paper.pdf"] && reading.lastDocuments == ["file:///Users/m/paper.pdf"])
     #expect(file.stages[0].windows.first?.title == "~/dev")
     _ = try file.encoded()
@@ -607,5 +607,52 @@ private func snapshot(_ stages: [Stage], live: Set<UInt32>) -> StageSnapshot {
     _ = store.reconcile(snapshot([stage([1], .centre, apps: ["A"]), stage([2], apps: ["B"]), stage([3], apps: ["C"])]))
     _ = store.reconcile(snapshot([stage([1, 2, 3], .centre, apps: ["A", "B", "C"])]))
     #expect(store.lastRejection != nil)
+  }
+}
+
+@MainActor @Suite struct AutoSlotInkTests {
+  @Test func stagesGetTheLowestFreeKeysInOrder() {
+    let store = StageStore(directory: nil)
+    let ids = store.reconcile(snapshot((1...12).map { stage([UInt32($0)], apps: ["App\($0)"]) })).map(\.id)
+    #expect(ids.compactMap { store.records[$0]?.slot } == ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "a", "b"])
+    #expect(ids.allSatisfy { store.records[$0]?.autoSlot == true })
+  }
+
+  @Test func inksSpreadAcrossThePalette() {
+    let store = StageStore(directory: nil)
+    let s = store.reconcile(snapshot((1...8).map { stage([UInt32($0)], apps: ["App\($0)"]) }))
+    let inks = s.compactMap(\.record.ink)
+    #expect(inks.count == 8)
+    #expect(Set(inks.prefix(7)) == Set(Ink.allCases))   // all seven before any repeats
+  }
+
+  @Test func autoValuesDoNotProtectFromPruning() {
+    var t = Date(timeIntervalSince1970: 0)
+    let store = StageStore(directory: nil, now: { t })
+    let id = store.reconcile(snapshot([stage([1], apps: ["Mail"])]))[0].id
+    #expect(store.records[id]?.isCustomised == false)
+    t += StageStore.unnamedTTL + 1
+    _ = store.reconcile(snapshot([stage([9], apps: ["Notes"])]))
+    #expect(store.records[id] == nil)
+    // Its key is free again.
+    #expect(store.records.values.first?.slot == "1")
+  }
+
+  @Test func choosingASlotStealsItAndTheLoserGetsTheNextFree() {
+    let store = StageStore(directory: nil)
+    let s = store.reconcile(snapshot([stage([1], apps: ["A"]), stage([2], apps: ["B"])]))
+    store.setSlot(s[1].id, "1")
+    #expect(store.records[s[1].id]?.autoSlot == false && store.records[s[1].id]?.isCustomised == true)
+    let later = store.reconcile(snapshot([stage([1], apps: ["A"]), stage([2], apps: ["B"])]))
+    #expect(later.map(\.record.slot) == ["2", "1"])
+  }
+
+  @Test func namedSleepingStagesKeepTheirKey() {
+    let store = StageStore(directory: nil)
+    let s = store.reconcile(snapshot([stage([1], apps: ["A"])], live: [1]))
+    store.rename(s[0].id, to: "Kept")
+    _ = store.reconcile(snapshot([stage([5], apps: ["B"])], live: [5]))
+    #expect(store.records[s[0].id]?.slot == "1")
+    #expect(store.records.values.first { $0.id != s[0].id }?.slot == "2")
   }
 }

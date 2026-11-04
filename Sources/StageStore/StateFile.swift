@@ -18,7 +18,7 @@ public struct StateFile: Codable, Equatable, Sendable {
     public var id: UUID
     public var name: String?
     public var ink: String?
-    public var slot: Int?
+    public var slot: String?
     /// "centre", "strip", "overflow", or "absent" for a named stage not on screen.
     public var position: String
     public var order: Int?

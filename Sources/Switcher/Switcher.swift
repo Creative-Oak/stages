@@ -1,4 +1,5 @@
 import Foundation
+import StageReader
 
 /// One stage as the switcher sees it. Built by the app from an identified stage.
 public struct Candidate: Hashable, Identifiable, Sendable {
@@ -16,12 +17,13 @@ public struct Candidate: Hashable, Identifiable, Sendable {
   public var position: Position
   /// Order within its position (strip top-to-bottom, overflow order).
   public var order: Int
-  public var slot: Int?
+  /// Slot key (1–9, 0, a–z).
+  public var slot: String?
   public var lastActive: Date?
   public var createdAt: Date
 
   public init(id: UUID, name: String?, apps: [String], titles: [String], position: Position, order: Int,
-              slot: Int? = nil, lastActive: Date? = nil, createdAt: Date) {
+              slot: String? = nil, lastActive: Date? = nil, createdAt: Date) {
     self.id = id; self.name = name; self.apps = apps; self.titles = titles; self.position = position
     self.order = order; self.slot = slot; self.lastActive = lastActive; self.createdAt = createdAt
   }
@@ -54,12 +56,12 @@ public enum SwitcherOrder {
     }
   }
 
-  /// A stable cycle for next/previous: slots 1–9 first, then the rest by age. Stage Manager
+  /// A stable cycle for next/previous: by slot key (1–9, 0, a–z), then the rest by age. Stage Manager
   /// reorders the strip on every switch, so cycling by strip position would ping-pong between
   /// two stages.
   public static func cycle(_ c: [Candidate]) -> [Candidate] {
     c.sorted { a, b in
-      switch (a.slot, b.slot) {
+      switch (a.slot.flatMap(SlotKeys.index), b.slot.flatMap(SlotKeys.index)) {
       case let (x?, y?): return x < y
       case (_?, nil): return true
       case (nil, _?): return false
@@ -99,6 +101,11 @@ public struct SwitcherSession: Sendable {
   }
 
   public mutating func type(_ s: String) { query += s; selection = 0 }
+
+  /// The stage whose slot is `key`, if one is listed: pressing a slot key switches straight there.
+  public func candidate(slot key: String) -> Candidate? {
+    all.first { $0.slot == key.lowercased() }
+  }
 
   public mutating func backspace() {
     guard !query.isEmpty else { return }

@@ -1,4 +1,5 @@
 import Foundation
+import StageReader
 
 /// A `stages://` URL, parsed. Raycast Quicklinks (or anything else) open these.
 ///
@@ -9,14 +10,14 @@ import Foundation
 ///   stages://slot?value=3             (or none)
 ///   stages://wake?name=Reading        (relaunch a sleeping stage's apps and documents)
 public enum Command: Equatable, Sendable {
-  case switchToSlot(Int)
+  case switchToSlot(String)
   case switchToName(String)
   case switchToID(UUID)
   case next
   case previous
   case rename(String?)
   case ink(String?)
-  case slot(Int?)
+  case slot(String?)
   case wake(String)
 
   public enum ParseError: Error, Equatable, CustomStringConvertible {
@@ -47,8 +48,8 @@ public enum Command: Equatable, Sendable {
     switch name {
     case "switch":
       if let s = param("slot") {
-        guard let n = Int(s), (1...9).contains(n) else { return .failure(.invalid("slot", s)) }
-        return .success(.switchToSlot(n))
+        guard SlotKeys.isValid(s) else { return .failure(.invalid("slot", s)) }
+        return .success(.switchToSlot(s.lowercased()))
       }
       if let n = param("name") {
         let trimmed = n.trimmingCharacters(in: .whitespaces)
@@ -71,9 +72,9 @@ public enum Command: Equatable, Sendable {
       return .success(.ink(v == "none" || v.isEmpty ? nil : v))
     case "slot":
       guard let v = param("value")?.lowercased() else { return .failure(.missing("value")) }
-      if v == "none" || v == "0" || v.isEmpty { return .success(.slot(nil)) }
-      guard let n = Int(v), (1...9).contains(n) else { return .failure(.invalid("slot", v)) }
-      return .success(.slot(n))
+      if v == "none" || v.isEmpty { return .success(.slot(nil)) }
+      guard SlotKeys.isValid(v) else { return .failure(.invalid("slot", v)) }
+      return .success(.slot(v))
     case "wake":
       guard let n = param("name")?.trimmingCharacters(in: .whitespaces), !n.isEmpty else { return .failure(.missing("name")) }
       return .success(.wake(n))

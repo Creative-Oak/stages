@@ -21,9 +21,9 @@ let package = Package(
     // Stage records (name, ink, slot) matched to snapshots, persisted as JSON.
     .target(name: "StageStore", dependencies: ["StageReader"]),
     // Switcher logic: MRU and cycle order, filtering, the hold-modifier session. Pure.
-    .target(name: "Switcher"),
+    .target(name: "Switcher", dependencies: ["StageReader"]),
     // stages:// URL parsing (Raycast Quicklinks). Pure.
-    .target(name: "Commands"),
+    .target(name: "Commands", dependencies: ["StageReader"]),
     // Append-only JSONL of centre-stage changes. Local only.
     .target(name: "ActivityLog"),
     // Debug CLI: record fixtures, read live or recorded captures, watch committed snapshots.

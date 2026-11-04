@@ -1,4 +1,5 @@
 import AppKit
+import ServiceManagement
 
 @main
 enum StagesMain {
@@ -15,18 +16,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private let model = AppModel()
   private var statusItem: StatusItemController?
   private var hotkeys: HotkeyTap?
-  private var ring: RingPanel?
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     statusItem = StatusItemController(model: model)
     model.start()
-    let ring = RingPanel(model: model)
-    self.ring = ring
-    model.onStep = { ring.show(target: $0, ring: $1) }
+    Self.setUpLoginItemOnce()
     let switcher = SwitcherPanel(model: model)
     switcher.prewarm()
     hotkeys = HotkeyTap(model: model, panel: switcher)
     hotkeys?.start()
+  }
+
+  /// Open at login is on by default, once, for an installed copy (not a build folder). Turning
+  /// it off in Settings sticks.
+  private static func setUpLoginItemOnce() {
+    let key = "loginItemSetUp"
+    let path = Bundle.main.bundlePath
+    guard !UserDefaults.standard.bool(forKey: key),
+          path.hasPrefix(NSHomeDirectory() + "/Applications/") || path.hasPrefix("/Applications/") else { return }
+    do {
+      try SMAppService.mainApp.register()
+      UserDefaults.standard.set(true, forKey: key)
+    } catch {
+      NSLog("Stages: couldn't add the login item: \(error)")
+    }
   }
 
   /// stages:// URLs (Raycast Quicklinks).

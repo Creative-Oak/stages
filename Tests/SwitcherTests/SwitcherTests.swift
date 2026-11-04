@@ -3,7 +3,7 @@ import Testing
 @testable import Switcher
 
 private func c(_ name: String?, _ apps: [String], _ pos: Candidate.Position = .strip, order: Int = 0,
-               slot: Int? = nil, active: Double? = nil, created: Double = 0, titles: [String] = []) -> Candidate {
+               slot: String? = nil, active: Double? = nil, created: Double = 0, titles: [String] = []) -> Candidate {
   Candidate(id: UUID(), name: name, apps: apps, titles: titles, position: pos, order: order, slot: slot,
             lastActive: active.map { Date(timeIntervalSince1970: $0) }, createdAt: Date(timeIntervalSince1970: created))
 }
@@ -18,8 +18,9 @@ private func c(_ name: String?, _ apps: [String], _ pos: Candidate.Position = .s
   }
 
   @Test func cycleIsStableSlotsFirst() {
-    let a = c("A", ["X"], created: 3), b = c("B", ["Y"], slot: 2, created: 9), d = c("D", ["Z"], slot: 1, created: 5)
-    #expect(SwitcherOrder.cycle([a, b, d]).map(\.name) == ["D", "B", "A"])
+    let a = c("A", ["X"], created: 3), b = c("B", ["Y"], slot: "2", created: 9), d = c("D", ["Z"], slot: "1", created: 5)
+    let z = c("Z", ["W"], slot: "0", created: 1), k = c("K", ["V"], slot: "a", created: 0)
+    #expect(SwitcherOrder.cycle([k, a, b, z, d]).map(\.name) == ["D", "B", "Z", "K", "A"])   // 1, 2, 0, a, then unslotted
   }
 
   @Test func neighbourWraps() {

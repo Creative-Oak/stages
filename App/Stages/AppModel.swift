@@ -140,7 +140,7 @@ final class AppModel {
 
   func rename(_ id: UUID, _ name: String) { store.rename(id, to: name); refresh() }
   func setInk(_ id: UUID, _ ink: Ink?) { store.setInk(id, ink); refresh() }
-  func setSlot(_ id: UUID, _ slot: Int?) { store.setSlot(id, slot); refresh() }
+  func setSlot(_ id: UUID, _ slot: String?) { store.setSlot(id, slot); refresh() }
   /// Drop a sleeping stage for good.
   func forget(_ id: UUID) { store.forget(id); sleeping = store.sleeping; refresh() }
 
@@ -171,7 +171,7 @@ final class AppModel {
     switch command {
     case let .switchToSlot(n):
       guard let s = stages.first(where: { $0.record.slot == n }) else {
-        return report(records.contains { $0.slot == n } ? "The stage in slot \(n) isn't open." : "No stage has slot \(n).")
+        return report(records.contains { $0.slot == n } ? "The stage in slot \(n.uppercased()) isn't open." : "No stage has slot \(n.uppercased()).")
       }
       switchTo(s.id)
     case let .switchToName(name):
@@ -329,7 +329,6 @@ final class AppModel {
     guard let target = walk.step(by, live: Set(stages.map(\.id))) else { return }
     ringSession = (walk, now + Self.ringSessionLength)
     provisionalCurrent = target
-    onStep?(target, walk.ring)
     pendingStep?.cancel()
     pendingStep = Task { [weak self] in
       try? await Task.sleep(for: .milliseconds(180))
@@ -341,8 +340,6 @@ final class AppModel {
   @ObservationIgnored private var ringSession: (walk: RingWalk, until: ContinuousClock.Instant)?
   private static let ringSessionLength: Duration = .milliseconds(2500)
   private var steppingActive: Bool { ringSession.map { ContinuousClock.now < $0.until } ?? false }
-  /// Called with each step's target and the frozen ring (the ring panel shows them).
-  @ObservationIgnored var onStep: ((UUID, [UUID]) -> Void)?
   /// Only the newest switch may retry or report; older ones stop when superseded.
   @ObservationIgnored private var switchGeneration = 0
 

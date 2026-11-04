@@ -41,10 +41,10 @@ struct SettingsView: View {
         Picker("Stage switcher", selection: $modifier) {
           ForEach(ShortcutSettings.Modifier.allCases, id: \.rawValue) { Text($0.label).tag($0.rawValue) }
         }
-        Text("Hold the modifier and press ⇥ to step through stages, most recent first. Type to filter, release to switch, Esc to cancel.")
+        Text("Hold the modifier and press ⇥ to step through stages, most recent first. Release to switch, or press a stage's key (1–9, 0, A–Z) to go straight there. Esc cancels.")
           .font(.callout).foregroundStyle(.secondary)
         Toggle("⌃⌥ arrows switch to the previous / next stage", isOn: $arrows)
-        Text("Next and previous follow a fixed order: slots 1–9 first, then the oldest stages.")
+        Text("Next and previous follow the stages' slot keys: 1–9, 0, then A–Z. Every stage gets the next free key automatically; change it in the popover.")
           .font(.callout).foregroundStyle(.secondary)
       } header: {
         Theme.label("Keyboard")

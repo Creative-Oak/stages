@@ -188,7 +188,7 @@ struct StageRow: View {
             }
           }
           if let slot = stage.record.slot {
-            Text("\(slot)")
+            Text(slot.uppercased())
               .font(Theme.mono(11, .medium))
               .frame(width: 16, height: 16)
               .overlay(Rectangle().strokeBorder(.primary.opacity(0.5), lineWidth: 1))
@@ -239,15 +239,20 @@ struct StageEditor: View {
       HStack(spacing: 8) {
         Theme.label("Slot")
         Picker("Slot", selection: Binding(
-          get: { stage.record.slot ?? 0 },
-          set: { model.setSlot(stage.id, $0 == 0 ? nil : $0) })
+          get: { stage.record.slot ?? "" },
+          set: { model.setSlot(stage.id, $0.isEmpty ? nil : $0) })
         ) {
-          Text("–").tag(0)
-          ForEach(1...9, id: \.self) { Text("\($0)").font(Theme.mono(11)).tag($0) }
+          Text("None").tag("")
+          ForEach(SlotKeys.all, id: \.self) { key in
+            let holder = model.records.first { $0.slot == key && $0.id != stage.id }
+            Text(holder.map { "\(key.uppercased())  (\($0.name ?? "taken"))" } ?? key.uppercased()).tag(key)
+          }
         }
-        .pickerStyle(.segmented)
+        .pickerStyle(.menu)
         .labelsHidden()
         .controlSize(.small)
+        .fixedSize()
+        if stage.record.autoSlot { Text("automatic").font(.system(size: 11)).foregroundStyle(.tertiary) }
       }
 
       if stage.stage.position != .centre {
@@ -290,8 +295,8 @@ struct StageMenu: View {
       Button("None") { model.setInk(stage.id, nil) }
     }
     Menu("Slot") {
-      ForEach(1...9, id: \.self) { n in
-        Toggle("\(n)", isOn: Binding(get: { stage.record.slot == n }, set: { _ in model.setSlot(stage.id, n) }))
+      ForEach(SlotKeys.all, id: \.self) { key in
+        Toggle(key.uppercased(), isOn: Binding(get: { stage.record.slot == key }, set: { _ in model.setSlot(stage.id, key) }))
       }
       Divider()
       Button("None") { model.setSlot(stage.id, nil) }

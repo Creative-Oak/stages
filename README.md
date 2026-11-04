@@ -30,9 +30,27 @@ make run       # generate the Xcode project, build Stages.app, (re)launch it
 make install   # build, copy to ~/Applications/Stages.app and run it from there
 ```
 
-Then turn on Settings… → General → Open at login.
+The installed copy turns on Open at login the first time it runs (Settings… → General to turn
+it off).
+
+```bash
+make release TEAM_ID=ABCDE12345   # Developer ID build: sign, notarize, staple → build/release/Stages.zip
+```
+
+`make release` needs an Apple Developer membership, a "Developer ID Application" certificate in
+the keychain (Xcode → Settings → Accounts → Manage Certificates → +), and a notarytool profile:
+`xcrun notarytool store-credentials stages-notary --apple-id <you> --team-id <TEAM> --password <app-specific password>`.
+A Developer ID build is signed by a different certificate than the local one, so macOS asks for
+Screen Recording and Accessibility once more.
 
 The app needs its own Screen Recording grant (separate from your terminal's).
+
+### Switching
+
+Hold ⌥ (or ⌃ / ⌘, in Settings) and press ⇥: a native-looking switcher shows every stage
+(overflow dimmed), most recent first. Release to switch, or press a stage's key to go straight
+there. Every stage gets a key automatically, 1–9, then 0, then A–Z, and an ink; change either in
+the popover. ⌃⌥ arrows (and, opt-in, 3- or 4-finger swipes) step through stages in key order.
 
 ### Raycast (URL scheme)
 
@@ -40,13 +58,13 @@ Bind these as Raycast Quicklinks (e.g. Hyper+1…9). Errors beep and show in the
 
 | URL | Does |
 |---|---|
-| `stages://switch?slot=3` | switch to the stage in slot 3 |
+| `stages://switch?slot=3` | switch to the stage in slot 3 (slots are 1–9, 0, a–z) |
 | `stages://switch?name=Swifttap` | switch by name (exact, else a unique prefix) |
 | `stages://switch?id=<uuid>` | switch by record ID (from `state.json`) |
-| `stages://next`, `stages://previous` | step through the ring (slots, then age) |
+| `stages://next`, `stages://previous` | step to the next / previous stage in slot order |
 | `stages://name?value=Lodestone` | name the current stage (empty value clears) |
 | `stages://ink?value=teal` | ink the current stage (`none` clears): teal, ultramarine, oxide, violet, grass, sienna, chrome |
-| `stages://slot?value=3` | give the current stage slot 3 (`none` clears) |
+| `stages://slot?value=3` | give the current stage slot 3 (`none` clears; it then gets the next free key) |
 | `stages://wake?name=Reading` | wake a sleeping single-app stage (relaunch the app and its documents) |
 
 `~/Library/Application Support/Stages/state.json` holds the current stages (names, inks, slots,

@@ -88,8 +88,12 @@ public struct StageRecord: Codable, Hashable, Identifiable, Sendable {
   public var id: UUID
   public var name: String?
   public var ink: Ink?
-  /// 1–9, unique across records.
-  public var slot: Int?
+  /// A key from `SlotKeys` (1–9, 0, a–z), unique across records.
+  public var slot: String?
+  /// The slot / ink was assigned automatically, not chosen; auto values don't make a record
+  /// "customised" (it can still be pruned, which frees them).
+  public var autoSlot: Bool
+  public var autoInk: Bool
   /// The stage's window IDs as last seen.
   public var windowIDs: Set<UInt32>
   public var fingerprint: Fingerprint
@@ -110,18 +114,20 @@ public struct StageRecord: Codable, Hashable, Identifiable, Sendable {
   public var lastSeen: Date
   public var createdAt: Date
 
-  public init(id: UUID = UUID(), name: String? = nil, ink: Ink? = nil, slot: Int? = nil,
+  public init(id: UUID = UUID(), name: String? = nil, ink: Ink? = nil, slot: String? = nil,
+              autoSlot: Bool = false, autoInk: Bool = false,
               windowIDs: Set<UInt32>, fingerprint: Fingerprint = Fingerprint(), state: State = .active,
               mergedInto: UUID? = nil, membershipSeen: Bool = false, lastActive: Date? = nil, lastSeen: Date? = nil,
               createdAt: Date = Date()) {
     self.id = id; self.name = name; self.ink = ink; self.slot = slot
+    self.autoSlot = autoSlot; self.autoInk = autoInk
     self.windowIDs = windowIDs; self.fingerprint = fingerprint; self.state = state; self.mergedInto = mergedInto
     self.membershipSeen = membershipSeen
     self.lastActive = lastActive; self.lastSeen = lastSeen ?? createdAt; self.createdAt = createdAt
   }
 
   /// Named, inked or slotted: something the person chose, so never pruned automatically.
-  public var isCustomised: Bool { name != nil || ink != nil || slot != nil }
+  public var isCustomised: Bool { name != nil || (ink != nil && !autoInk) || (slot != nil && !autoSlot) }
 
   // Version-1 files (M1) have no fingerprint, state, mergedInto or lastSeen.
   public init(from decoder: Decoder) throws {
@@ -129,7 +135,11 @@ public struct StageRecord: Codable, Hashable, Identifiable, Sendable {
     id = try c.decode(UUID.self, forKey: .id)
     name = try c.decodeIfPresent(String.self, forKey: .name)
     ink = try c.decodeIfPresent(Ink.self, forKey: .ink)
-    slot = try c.decodeIfPresent(Int.self, forKey: .slot)
+    // Slots were 1–9 integers before keys (version 2 files).
+    if let n = try? c.decodeIfPresent(Int.self, forKey: .slot) { slot = String(n) }
+    else { slot = try c.decodeIfPresent(String.self, forKey: .slot) }
+    autoSlot = try c.decodeIfPresent(Bool.self, forKey: .autoSlot) ?? false
+    autoInk = try c.decodeIfPresent(Bool.self, forKey: .autoInk) ?? false
     windowIDs = try c.decode(Set<UInt32>.self, forKey: .windowIDs)
     fingerprint = try c.decodeIfPresent(Fingerprint.self, forKey: .fingerprint) ?? Fingerprint()
     state = try c.decodeIfPresent(State.self, forKey: .state) ?? .active

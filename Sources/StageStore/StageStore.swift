@@ -155,7 +155,9 @@ public final class StageStore {
       if let event = Self.event(reason, record.id, windows: stage.windowIDs.count) { onEvent?(event) }
     }
     lastReasons = reasons
-    prune(at: t, onScreen: Set(reasons.keys))
+    prune(at: t, onScreen: Set(reasons.keys))   // first, so freed keys are reused at once
+    assignAuto(onScreen: result.map(\.id))
+    for i in result.indices { if let r = records[result[i].id] { result[i].record = r } }
     save()
     return result
   }
@@ -272,7 +274,7 @@ public final class StageStore {
     update(id) { $0.name = (trimmed?.isEmpty ?? true) ? nil : trimmed }
   }
 
-  public func setInk(_ id: UUID, _ ink: Ink?) { update(id) { $0.ink = ink } }
+  public func setInk(_ id: UUID, _ ink: Ink?) { update(id) { $0.ink = ink; $0.autoInk = false } }
 
   /// Removes a record (and links to it). Named records are never pruned otherwise.
   public func forget(_ id: UUID) {
@@ -281,13 +283,34 @@ public final class StageStore {
     save()
   }
 
-  /// Assigning a slot takes it away from whichever record had it.
-  public func setSlot(_ id: UUID, _ slot: Int?) {
-    precondition(slot.map { (1...9).contains($0) } ?? true, "slot must be 1–9")
+  /// Assigning a slot takes it away from whichever record had it (that one gets the next free
+  /// key on the next snapshot, if it's on screen).
+  public func setSlot(_ id: UUID, _ slot: String?) {
+    let slot = slot?.lowercased()
+    precondition(slot.map(SlotKeys.isValid) ?? true, "slot must be one of 1–9, 0, a–z")
     if let slot {
       for (other, r) in records where r.slot == slot && other != id { records[other]?.slot = nil }
     }
-    update(id) { $0.slot = slot }
+    update(id) { $0.slot = slot; $0.autoSlot = false }
+  }
+
+  /// Gives each on-screen record without one the lowest free slot key, and an ink: the one in
+  /// least use on screen (ties in palette order). Both marked auto.
+  private func assignAuto(onScreen ids: [UUID]) {
+    var taken = Set(records.values.compactMap(\.slot))
+    var inkUse: [Ink: Int] = Dictionary(uniqueKeysWithValues: Ink.allCases.map { ($0, 0) })
+    for id in ids { if let ink = records[id]?.ink { inkUse[ink, default: 0] += 1 } }
+    for id in ids {
+      guard var r = records[id] else { continue }
+      if r.slot == nil, let key = SlotKeys.all.first(where: { !taken.contains($0) }) {
+        r.slot = key; r.autoSlot = true; taken.insert(key)
+      }
+      if r.ink == nil {
+        let ink = Ink.allCases.min { (inkUse[$0]!, Ink.allCases.firstIndex(of: $0)!) < (inkUse[$1]!, Ink.allCases.firstIndex(of: $1)!) }!
+        r.ink = ink; r.autoInk = true; inkUse[ink, default: 0] += 1
+      }
+      records[id] = r
+    }
   }
 
   private func update(_ id: UUID, _ change: (inout StageRecord) -> Void) {
