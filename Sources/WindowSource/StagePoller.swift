@@ -18,6 +18,8 @@ public final class StagePoller {
   }
 
   public private(set) var latest: StageSnapshot?
+  /// For the last commit: time from the first changed read to the commit, and reads taken.
+  public private(set) var lastSettle: (duration: Duration, reads: Int)?
   /// Called on the main actor with each committed (stable, changed) snapshot.
   public var onCommit: ((StageSnapshot) -> Void)?
   /// Called with every read, stable or not (debug views).
@@ -29,6 +31,9 @@ public final class StagePoller {
   private var task: Task<Void, Never>?
   private var lastRawSignature = ""
   private var lastChange = ContinuousClock.now
+  /// First raw change since the last commit, and reads since then.
+  private var unsettledSince: ContinuousClock.Instant?
+  private var readsSinceChange = 0
   private var observer: NSObjectProtocol?
   private var wake: CheckedContinuation<Void, Never>?
 
@@ -71,11 +76,17 @@ public final class StagePoller {
   public func tick() -> Duration {
     let capture = source.capture()
     let rawSig = Self.rawSignature(capture)
-    if rawSig != lastRawSignature { lastChange = .now; lastRawSignature = rawSig }
+    if rawSig != lastRawSignature {
+      lastChange = .now; lastRawSignature = rawSig
+      if unsettledSince == nil { unsettledSince = .now; readsSinceChange = 0 }
+    }
+    readsSinceChange += 1
 
     let snapshot = StageReader.read(capture)
     onRead?(snapshot)
     if let committed = gate.feed(snapshot) {
+      lastSettle = unsettledSince.map { (ContinuousClock.now - $0, readsSinceChange) }
+      unsettledSince = nil
       latest = committed
       onCommit?(committed)
     }

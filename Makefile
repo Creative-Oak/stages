@@ -19,7 +19,7 @@ app: project
 	@codesign -d -r- $(APP) 2>&1 | grep "designated"
 
 run: app
-	-pkill -x Stages; while pgrep -x Stages >/dev/null; do sleep 0.1; done
+	-pkill -x Stages; while pgrep -x Stages >/dev/null; do sleep 0.1; done; sleep 0.5
 	open $(APP)
 
 test:

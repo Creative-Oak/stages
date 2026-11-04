@@ -17,15 +17,40 @@ final class AppModel {
   /// "windowID|title" already sent to the document resolver.
   @ObservationIgnored private var resolvedDocuments = Set<String>()
   @ObservationIgnored private var resolving = false
+  /// Set on app activation, before the next snapshot confirms which stage is in the centre.
+  private(set) var provisionalCurrent: UUID?
+  @ObservationIgnored private var activatedAt: ContinuousClock.Instant?
+  @ObservationIgnored private var activationObserver: NSObjectProtocol?
 
   func start() {
     poller.onCommit = { [weak self] snapshot in self?.apply(snapshot) }
     store.onEvent = { Self.log.notice("identity: \($0, privacy: .public)") }
+    activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+      forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+    ) { [weak self] note in
+      let pid = (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.processIdentifier
+      MainActor.assumeIsolated { self?.activated(pid) }
+    }
     poller.start()
   }
 
-  /// The centre stage on the main display (the reader orders the main display first).
-  var current: IdentifiedStage? { stages.first { $0.stage.position == .centre } }
+  /// The centre stage on the main display (the reader orders the main display first), or,
+  /// right after switching apps, the stage the activated app belongs to.
+  var current: IdentifiedStage? {
+    if let p = provisionalCurrent, let s = stages.first(where: { $0.id == p }) { return s }
+    return stages.first { $0.stage.position == .centre }
+  }
+
+  /// Activating an app brings its stage to the centre. Show that at once when the app is in
+  /// exactly one stage; the next committed snapshot confirms or corrects it.
+  private func activated(_ pid: Int32?) {
+    activatedAt = .now
+    guard let pid else { return }
+    let containing = stages.filter { $0.stage.windows.contains { $0.pid == pid } }
+    if containing.count == 1, containing[0].stage.position != .centre {
+      provisionalCurrent = containing[0].id
+    }
+  }
 
   func stages(_ position: Stage.Position) -> [IdentifiedStage] {
     stages.filter { $0.stage.position == position }
@@ -37,6 +62,14 @@ final class AppModel {
     self.snapshot = snapshot
     stages = store.reconcile(snapshot)
     records = Array(store.records.values)
+    provisionalCurrent = nil
+    if let settle = poller.lastSettle {
+      let ms = Int(settle.duration.components.seconds * 1000 + settle.duration.components.attoseconds / 1_000_000_000_000_000)
+      let sinceActivation = activatedAt.map { ContinuousClock.now - $0 }
+      let am = sinceActivation.map { Int($0.components.seconds * 1000 + $0.components.attoseconds / 1_000_000_000_000_000) }
+      Self.log.notice("settle: \(ms) ms over \(settle.reads) reads; since activation: \(am.map(String.init) ?? "–", privacy: .public) ms")
+      activatedAt = nil
+    }
     // Counts only: window titles stay out of the system log.
     if let reason = snapshot.unavailable {
       Self.log.notice("committed: unavailable \(reason.rawValue, privacy: .public)")
