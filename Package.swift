@@ -10,6 +10,7 @@ let package = Package(
     .library(name: "StageStore", targets: ["StageStore"]),
     .library(name: "Switcher", targets: ["Switcher"]),
     .library(name: "Commands", targets: ["Commands"]),
+    .library(name: "ActivityLog", targets: ["ActivityLog"]),
     .executable(name: "stagesctl", targets: ["stagesctl"]),
   ],
   targets: [
@@ -23,6 +24,8 @@ let package = Package(
     .target(name: "Switcher"),
     // stages:// URL parsing (Raycast Quicklinks). Pure.
     .target(name: "Commands"),
+    // Append-only JSONL of centre-stage changes. Local only.
+    .target(name: "ActivityLog"),
     // Debug CLI: record fixtures, read live or recorded captures, watch committed snapshots.
     .executableTarget(
       name: "stagesctl", dependencies: ["StageReader", "WindowSource"],
@@ -36,5 +39,6 @@ let package = Package(
     .testTarget(name: "StageStoreTests", dependencies: ["StageStore", "StageReader"]),
     .testTarget(name: "SwitcherTests", dependencies: ["Switcher"]),
     .testTarget(name: "CommandsTests", dependencies: ["Commands"]),
+    .testTarget(name: "ActivityLogTests", dependencies: ["ActivityLog"]),
   ]
 )

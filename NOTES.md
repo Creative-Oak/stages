@@ -73,6 +73,13 @@ Machine: MacBook, single 1470×956 display, macOS 27.2 (26B123), Xcode 27.2 (fro
 | `open stages://…` reaches the running app (LaunchServices, `CFBundleURLTypes`), and `application(_:open:)` handles it; Stages deactivates afterwards so the frontmost app keeps focus. | routing verified 2026-11-04 (`open -g 'stages://switch?slot=9'` → "No stage has slot 9"); focus behaviour from Raycast **to verify** |
 | `state.json` written on change: 11 stages, document paths present for windows whose AX document resolved. | verified 2026-11-04 |
 
+## Activity log (M5)
+
+| Behaviour | Status |
+|---|---|
+| `activity.jsonl` gets an entry on each committed change of the centre stage or of its windows/titles/documents (repeats skipped), and again when document paths resolve. | verified 2026-11-04 (first entry on launch) |
+| Switch latency measured: Stages' part (key release → AX raise + frontmost) 12–63 ms, typically ~27 ms; stage confirmed in the centre ~970 ms after release (Stage Manager's animation plus two reads). | measured 2026-11-04 (Magnus's log) |
+
 ## Performance
 
 - 2026-11-03, release build of `stagesctl watch`: 0.84 % of one core over the first 30 s (fast

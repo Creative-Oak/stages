@@ -1,3 +1,4 @@
+import ActivityLog
 import AppKit
 import Observation
 import os
@@ -74,6 +75,7 @@ final class AppModel {
     stages = store.reconcile(snapshot)
     records = Array(store.records.values)
     writeState()
+    logActivity()
     // Mid-walk, intermediate snapshots don't move the menu bar off the target.
     if !steppingActive || committedCentre == provisionalCurrent { provisionalCurrent = nil }
     if let settle = poller.lastSettle {
@@ -108,6 +110,7 @@ final class AppModel {
       store.attachDocuments(docs)
       records = Array(store.records.values)
       writeState()
+      logActivity()
       resolving = false
     }
   }
@@ -190,6 +193,20 @@ final class AppModel {
       try? await Task.sleep(for: .seconds(8))
       if self?.switchProblem == problem { self?.switchProblem = nil }
     }
+  }
+
+  // MARK: activity.jsonl
+
+  @ObservationIgnored private let activity = ActivityLog(
+    fileURL: StageStore.defaultDirectory.appendingPathComponent("activity.jsonl"))
+
+  /// One line whenever the centre stage, or what's in it, changes (repeats are skipped).
+  private func logActivity() {
+    guard let centre = stages.first(where: { $0.stage.position == .centre }) else { return }
+    let windows = centre.stage.windows.map {
+      ActivityEntry.Window(bundleId: $0.bundleID, app: $0.owner, title: $0.title, documentPath: store.documents[$0.id])
+    }
+    activity.record(ActivityEntry(ts: Date(), stageId: centre.id, name: centre.record.name, windows: windows))
   }
 
   // MARK: state.json

@@ -46,6 +46,12 @@ Bind these as Raycast Quicklinks (e.g. Hyper+1…9). Errors beep and show in the
 apps, window titles, document paths) plus named stages that aren't open, with their last titles
 and documents. It's rewritten when anything changes and never leaves the Mac.
 
+### Activity log
+
+`~/Library/Application Support/Stages/activity.jsonl` gets one line each time the centre stage
+changes, or its windows, titles or documents do: `{ts, stageId, name, windows: [{bundleId, app,
+title, documentPath}]}`. Append-only, local only: data for "used with this Assembly" in Lodestone.
+
 ### Signing
 
 Builds are signed with a local self-signed identity, "Stages Local Signing" (no Apple account

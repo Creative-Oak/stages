@@ -23,6 +23,8 @@ targets:
         product: Switcher
       - package: StagesKit
         product: Commands
+      - package: StagesKit
+        product: ActivityLog
     info:
       path: Stages/Info.plist
       properties:
