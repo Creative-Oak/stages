@@ -21,6 +21,8 @@ targets:
         product: StageStore
       - package: StagesKit
         product: Switcher
+      - package: StagesKit
+        product: Commands
     info:
       path: Stages/Info.plist
       properties:
@@ -29,6 +31,9 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSUIElement: true
+        CFBundleURLTypes:
+          - CFBundleURLName: dk.creativeoak.stages
+            CFBundleURLSchemes: [stages]
         LSMinimumSystemVersion: "26.0"
         NSHumanReadableCopyright: "Magnus Høholt Kaspersen"
     settings:

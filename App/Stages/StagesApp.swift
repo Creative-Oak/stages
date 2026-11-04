@@ -26,6 +26,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     hotkeys = HotkeyTap(model: model, panel: SwitcherPanel(model: model))
     hotkeys?.start()
   }
+
+  /// stages:// URLs (Raycast Quicklinks).
+  func application(_ application: NSApplication, open urls: [URL]) {
+    for url in urls { model.handle(url) }
+    // Opening a URL activates Stages; give focus back so the frontmost app keeps it (a switch
+    // makes its own target frontmost anyway).
+    if NSApp.isActive { NSApp.deactivate() }
+  }
 }
 
 enum Permissions {

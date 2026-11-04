@@ -1,0 +1,88 @@
+import Foundation
+
+/// A `stages://` URL, parsed. Raycast Quicklinks (or anything else) open these.
+///
+///   stages://switch?slot=3            stages://switch?name=Swifttap      stages://switch?id=<uuid>
+///   stages://next                     stages://previous
+///   stages://name?value=Lodestone     (current stage; empty value clears)
+///   stages://ink?value=teal           (or none)
+///   stages://slot?value=3             (or none)
+public enum Command: Equatable, Sendable {
+  case switchToSlot(Int)
+  case switchToName(String)
+  case switchToID(UUID)
+  case next
+  case previous
+  case rename(String?)
+  case ink(String?)
+  case slot(Int?)
+
+  public enum ParseError: Error, Equatable, CustomStringConvertible {
+    case notStages(String)
+    case unknownCommand(String)
+    case missing(String)
+    case invalid(String, String)
+
+    public var description: String {
+      switch self {
+      case let .notStages(s): "not a stages:// URL: \(s)"
+      case let .unknownCommand(c): "unknown command “\(c)” (switch, next, previous, name, ink, slot)"
+      case let .missing(p): "missing parameter “\(p)”"
+      case let .invalid(p, v): "invalid \(p): “\(v)”"
+      }
+    }
+  }
+
+  public static let scheme = "stages"
+
+  public static func parse(_ url: URL) -> Result<Command, ParseError> {
+    guard url.scheme?.lowercased() == scheme else { return .failure(.notStages(url.absoluteString)) }
+    // stages://switch?… has the command as host; stages:switch?… (no slashes) as path.
+    let name = (url.host ?? url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))).lowercased()
+    let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+    func param(_ key: String) -> String? { items.first { $0.name.lowercased() == key }?.value }
+
+    switch name {
+    case "switch":
+      if let s = param("slot") {
+        guard let n = Int(s), (1...9).contains(n) else { return .failure(.invalid("slot", s)) }
+        return .success(.switchToSlot(n))
+      }
+      if let n = param("name") {
+        let trimmed = n.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return .failure(.invalid("name", n)) }
+        return .success(.switchToName(trimmed))
+      }
+      if let i = param("id") {
+        guard let id = UUID(uuidString: i) else { return .failure(.invalid("id", i)) }
+        return .success(.switchToID(id))
+      }
+      return .failure(.missing("slot, name or id"))
+    case "next": return .success(.next)
+    case "previous", "prev": return .success(.previous)
+    case "name":
+      guard let v = param("value") else { return .failure(.missing("value")) }
+      let trimmed = v.trimmingCharacters(in: .whitespacesAndNewlines)
+      return .success(.rename(trimmed.isEmpty ? nil : trimmed))
+    case "ink":
+      guard let v = param("value")?.lowercased() else { return .failure(.missing("value")) }
+      return .success(.ink(v == "none" || v.isEmpty ? nil : v))
+    case "slot":
+      guard let v = param("value")?.lowercased() else { return .failure(.missing("value")) }
+      if v == "none" || v == "0" || v.isEmpty { return .success(.slot(nil)) }
+      guard let n = Int(v), (1...9).contains(n) else { return .failure(.invalid("slot", v)) }
+      return .success(.slot(n))
+    default:
+      return .failure(.unknownCommand(name))
+    }
+  }
+
+  /// Which of `names` a `switch?name=` value means: an exact (case-insensitive) match, else the
+  /// only name it is a prefix of. nil if none or ambiguous.
+  public static func resolve(name query: String, in names: [(id: UUID, name: String)]) -> UUID? {
+    let q = query.lowercased()
+    if let exact = names.first(where: { $0.name.lowercased() == q }) { return exact.id }
+    let prefixed = names.filter { $0.name.lowercased().hasPrefix(q) }
+    return prefixed.count == 1 ? prefixed[0].id : nil
+  }
+}

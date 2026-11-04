@@ -64,6 +64,13 @@ Machine: MacBook, single 1470×956 display, macOS 27.2 (26B123), Xcode 27.2 (fro
 | Overflow working as a switch target (raising a window of an overflow stage brings that whole stage forward). | verified 2026-11-04 (Magnus) |
 | Stage Manager's animation (~0.7 s) dominates switch latency. WindowManager's binary contains an `animationSpeed=` log string, and one community source lists an `AnimationSpeed` key in `com.apple.WindowManager`, but no values or semantics are documented. Stages doesn't write it. | strings checked 2026-11-04 (macOS 27.2); key behaviour **unknown** |
 
+## URL scheme and state (M4)
+
+| Behaviour | Status |
+|---|---|
+| `open stages://…` reaches the running app (LaunchServices, `CFBundleURLTypes`), and `application(_:open:)` handles it; Stages deactivates afterwards so the frontmost app keeps focus. | routing verified 2026-11-04 (`open -g 'stages://switch?slot=9'` → "No stage has slot 9"); focus behaviour from Raycast **to verify** |
+| `state.json` written on change: 11 stages, document paths present for windows whose AX document resolved. | verified 2026-11-04 |
+
 ## Performance
 
 - 2026-11-03, release build of `stagesctl watch`: 0.84 % of one core over the first 30 s (fast

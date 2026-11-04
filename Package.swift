@@ -9,6 +9,7 @@ let package = Package(
     .library(name: "WindowSource", targets: ["WindowSource"]),
     .library(name: "StageStore", targets: ["StageStore"]),
     .library(name: "Switcher", targets: ["Switcher"]),
+    .library(name: "Commands", targets: ["Commands"]),
     .executable(name: "stagesctl", targets: ["stagesctl"]),
   ],
   targets: [
@@ -20,6 +21,8 @@ let package = Package(
     .target(name: "StageStore", dependencies: ["StageReader"]),
     // Switcher logic: MRU and cycle order, filtering, the hold-modifier session. Pure.
     .target(name: "Switcher"),
+    // stages:// URL parsing (Raycast Quicklinks). Pure.
+    .target(name: "Commands"),
     // Debug CLI: record fixtures, read live or recorded captures, watch committed snapshots.
     .executableTarget(
       name: "stagesctl", dependencies: ["StageReader", "WindowSource"],
@@ -32,5 +35,6 @@ let package = Package(
     ),
     .testTarget(name: "StageStoreTests", dependencies: ["StageStore", "StageReader"]),
     .testTarget(name: "SwitcherTests", dependencies: ["Switcher"]),
+    .testTarget(name: "CommandsTests", dependencies: ["Commands"]),
   ]
 )

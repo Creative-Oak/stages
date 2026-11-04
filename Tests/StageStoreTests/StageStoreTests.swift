@@ -441,3 +441,23 @@ private func tempDir() -> URL {
     #expect(later[0].id != id && later[0].record.name == nil)
   }
 }
+
+@MainActor @Suite struct StateFileTests {
+  @Test func listsOnScreenStagesThenNamedAbsentOnes() throws {
+    let store = StageStore(directory: nil)
+    let s = store.reconcile(snapshot([stage([1], .centre, apps: ["Ghostty"], titles: ["~/dev"]),
+                                      stage([2], apps: ["Preview"], titles: ["paper.pdf"])]))
+    store.rename(s[1].id, to: "Reading"); store.setInk(s[1].id, .teal); store.setSlot(s[1].id, 2)
+    store.attachDocuments([2: "file:///Users/m/paper.pdf"])
+    // Preview's stage goes away; it is named, so it stays listed as absent.
+    let later = store.reconcile(snapshot([stage([1], .centre, apps: ["Ghostty"], titles: ["~/dev"])]))
+    let file = StateFile.make(stages: later, records: Array(store.records.values), documents: store.documents)
+    #expect(file.current == s[0].id)
+    #expect(file.stages.map(\.position) == ["centre", "absent"])
+    let reading = file.stages[1]
+    #expect(reading.name == "Reading" && reading.ink == "teal" && reading.slot == 2)
+    #expect(reading.lastTitles == ["paper.pdf"] && reading.lastDocuments == ["file:///Users/m/paper.pdf"])
+    #expect(file.stages[0].windows.first?.title == "~/dev")
+    _ = try file.encoded()
+  }
+}

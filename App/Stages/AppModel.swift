@@ -2,6 +2,7 @@ import AppKit
 import Observation
 import os
 import StageReader
+import Commands
 import StageStore
 import Switcher
 import WindowSource
@@ -70,6 +71,7 @@ final class AppModel {
     self.snapshot = snapshot
     stages = store.reconcile(snapshot)
     records = Array(store.records.values)
+    writeState()
     provisionalCurrent = nil
     if let settle = poller.lastSettle {
       let ms = Int(settle.duration.components.seconds * 1000 + settle.duration.components.attoseconds / 1_000_000_000_000_000)
@@ -101,6 +103,7 @@ final class AppModel {
       let docs = await DocumentResolver.resolve(pending)
       store.attachDocuments(docs)
       records = Array(store.records.values)
+      writeState()
       resolving = false
     }
   }
@@ -124,9 +127,80 @@ final class AppModel {
       return s
     }
     records = Array(store.records.values)
+    writeState()
   }
 
   func pokePoller() { poller.poke() }
+
+  // MARK: stages:// commands
+
+  func handle(_ url: URL) {
+    switch Command.parse(url) {
+    case let .failure(error): report("\(error)")
+    case let .success(command): run(command)
+    }
+  }
+
+  private func run(_ command: Command) {
+    Self.log.notice("command: \(String(describing: command).prefix(40), privacy: .public)")
+    switch command {
+    case let .switchToSlot(n):
+      guard let s = stages.first(where: { $0.record.slot == n }) else {
+        return report(records.contains { $0.slot == n } ? "The stage in slot \(n) isn't open." : "No stage has slot \(n).")
+      }
+      switchTo(s.id)
+    case let .switchToName(name):
+      let named = stages.compactMap { s in s.record.name.map { (id: s.id, name: $0) } }
+      guard let id = Command.resolve(name: name, in: named) else {
+        return report("No open stage is called “\(name)”.")
+      }
+      switchTo(id)
+    case let .switchToID(id):
+      guard stages.contains(where: { $0.id == id }) else { return report("That stage isn't open.") }
+      switchTo(id)
+    case .next: step(1)
+    case .previous: step(-1)
+    case let .rename(name):
+      guard let id = current?.id else { return report("No stage in the centre to name.") }
+      rename(id, name ?? "")
+    case let .ink(value):
+      guard let id = current?.id else { return report("No stage in the centre.") }
+      guard let value else { return setInk(id, nil) }
+      guard let ink = Ink(rawValue: value) else {
+        return report("Unknown ink “\(value)”. Inks: \(Ink.allCases.map(\.rawValue).joined(separator: ", ")).")
+      }
+      setInk(id, ink)
+    case let .slot(n):
+      guard let id = current?.id else { return report("No stage in the centre.") }
+      setSlot(id, n)
+    }
+  }
+
+  private func report(_ problem: String) {
+    switchProblem = problem
+    Self.log.notice("command failed: \(problem, privacy: .public)")
+    NSSound.beep()
+    Task { [weak self] in
+      try? await Task.sleep(for: .seconds(8))
+      if self?.switchProblem == problem { self?.switchProblem = nil }
+    }
+  }
+
+  // MARK: state.json
+
+  @ObservationIgnored private var lastStateData: Data?
+
+  /// Rewrites state.json when its content changes (stages, names, inks, slots, titles, paths).
+  private func writeState() {
+    guard snapshot?.isAvailable == true else { return }
+    let file = StateFile.make(stages: stages, records: Array(store.records.values), documents: store.documents)
+    guard let data = try? file.encoded(), data != lastStateData else { return }
+    lastStateData = data
+    let url = StageStore.defaultDirectory.appendingPathComponent("state.json")
+    do { try data.write(to: url, options: .atomic) } catch {
+      Self.log.error("couldn't write state.json: \(error.localizedDescription, privacy: .public)")
+    }
+  }
 
   // MARK: Switching
 

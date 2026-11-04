@@ -28,6 +28,24 @@ make run       # generate the Xcode project, build Stages.app, (re)launch it
 
 The app needs its own Screen Recording grant (separate from your terminal's).
 
+### Raycast (URL scheme)
+
+Bind these as Raycast Quicklinks (e.g. Hyper+1…9). Errors beep and show in the popover.
+
+| URL | Does |
+|---|---|
+| `stages://switch?slot=3` | switch to the stage in slot 3 |
+| `stages://switch?name=Swifttap` | switch by name (exact, else a unique prefix) |
+| `stages://switch?id=<uuid>` | switch by record ID (from `state.json`) |
+| `stages://next`, `stages://previous` | step through the ring (slots, then age) |
+| `stages://name?value=Lodestone` | name the current stage (empty value clears) |
+| `stages://ink?value=teal` | ink the current stage (`none` clears): teal, ultramarine, oxide, violet, grass, sienna, chrome |
+| `stages://slot?value=3` | give the current stage slot 3 (`none` clears) |
+
+`~/Library/Application Support/Stages/state.json` holds the current stages (names, inks, slots,
+apps, window titles, document paths) plus named stages that aren't open, with their last titles
+and documents. It's rewritten when anything changes and never leaves the Mac.
+
 ### Signing
 
 Builds are signed with a local self-signed identity, "Stages Local Signing" (no Apple account

@@ -22,7 +22,7 @@ public final class StageStore {
   private let now: () -> Date
   private let bootTime: Date
   /// AX document path per window ID, filled in as the app resolves them.
-  private var documents: [UInt32: String] = [:]
+  public private(set) var documents: [UInt32: String] = [:]
 
   public static var defaultDirectory: URL {
     FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
