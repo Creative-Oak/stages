@@ -144,22 +144,36 @@ final class AppModel {
     }
   }
 
-  /// Next/previous in the stable cycle (slots first, then by age).
+  /// Next/previous in the stable cycle (slots first, then by age). Rapid presses only move the
+  /// target (the menu bar follows at once); the window is raised after a short pause, so a burst
+  /// of presses costs one Stage Manager animation.
   func step(_ by: Int) {
     guard let target = SwitcherOrder.neighbour(of: current?.id, in: candidates, step: by) else { return }
-    switchTo(target.id)
+    provisionalCurrent = target.id
+    pendingStep?.cancel()
+    pendingStep = Task { [weak self] in
+      try? await Task.sleep(for: .milliseconds(180))
+      guard !Task.isCancelled else { return }
+      self?.switchTo(target.id)
+    }
   }
+  @ObservationIgnored private var pendingStep: Task<Void, Never>?
+  /// Only the newest switch may retry or report; older ones stop when superseded.
+  @ObservationIgnored private var switchGeneration = 0
 
   /// Raise the stage's most recent window, then check the next snapshots for the stage in the
   /// centre; retry once, then report.
   func switchTo(_ id: UUID) {
     guard let stage = stages.first(where: { $0.id == id }), let window = stage.stage.windows.min(by: { $0.z < $1.z }) else { return }
-    guard committedCentre != id else { return }
+    switchGeneration += 1
+    let generation = switchGeneration
+    guard committedCentre != id else { provisionalCurrent = nil; return }
     provisionalCurrent = id
     poller.poke()
     Task { [weak self] in
       guard let self else { return }
       for attempt in 1...2 {
+        guard self.switchGeneration == generation else { return }
         let outcome = StageActivator.raise(window)
         switch outcome {
         case .notTrusted:
@@ -169,6 +183,7 @@ final class AppModel {
           Self.log.notice("switch: attempt \(attempt) failed: \(why, privacy: .public)")
         case .raised, .appOnly:
           if await self.waitForCentre(id, timeout: .milliseconds(1500)) {
+            guard self.switchGeneration == generation else { return }
             self.switchProblem = nil
             Self.log.notice("switch: reached centre on attempt \(attempt) (\(outcome == .raised ? "window raised" : "app only", privacy: .public))")
             return
@@ -176,6 +191,7 @@ final class AppModel {
           Self.log.notice("switch: not in centre after attempt \(attempt)")
         }
       }
+      guard self.switchGeneration == generation else { return }
       self.switchProblem = "Couldn't bring \(stage.title) to the centre."
       NSSound.beep()
     }
