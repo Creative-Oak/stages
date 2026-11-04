@@ -3,6 +3,8 @@
 //   stagesctl read [fixture.json] [--frame N] [--json]   read live (or a fixture) and explain it
 //   stagesctl watch                                      print each committed snapshot + poll cost
 //   stagesctl record <name> --note "…" [--frames N] [--interval ms] [--delay s] [--out dir] [--keep-titles]
+//   stagesctl tiles                                      list WindowManager's strip tiles (AX)
+//   stagesctl tile <n> press|add                         AXPress / AXAddToStage on tile n (spike)
 //   stagesctl gestures                                   spike: print the gesture events a global
 //                                                        event tap receives (needs Accessibility)
 //
@@ -164,6 +166,23 @@ case "record":
   print("Wrote \(frames) frame(s) to \(path)\(keepTitles ? "" : " (app window titles redacted)")\n")
   report(StageReader.read(captures.last!), capture: captures.last!)
 
+case "tiles", "tile":
+  // M6 spike: WindowManager publishes the strip as AXButtons with AXPress and AXAddToStage.
+  guard AXIsProcessTrusted() else { fail("needs Accessibility for this terminal.") }
+  let tiles = StripTiles.list()
+  if command == "tiles" || args.isEmpty {
+    if tiles.isEmpty { print("No strip tiles (is the strip empty, or Stage Manager off?)") }
+    for (i, t) in tiles.enumerated() { print("\(i + 1). \"\(t.title)\" \(t.frame) actions: \(t.actions.joined(separator: ", "))") }
+    break
+  }
+  guard let n = Int(args[0]), tiles.indices.contains(n - 1), args.count > 1 else {
+    fail("usage: stagesctl tile <n> press|add   (n from `stagesctl tiles`)")
+  }
+  let action = args[1] == "add" ? "AXAddToStage" : args[1] == "press" ? "AXPress" : args[1]
+  let t = tiles[n - 1]
+  let err = AXUIElementPerformAction(t.element, action as CFString)
+  print("\(action) on \"\(t.title)\": \(err == .success ? "ok" : "AX error \(err.rawValue)")")
+
 case "gestures":
   // Swipe spike (M3): which trackpad gesture events reach a public, listen-only event tap?
   guard AXIsProcessTrusted() else {
@@ -214,7 +233,7 @@ case "gestures":
   RunLoop.main.run()
 
 default:
-  fail("unknown command \(command). Commands: read, watch, record, gestures")
+  fail("unknown command \(command). Commands: read, watch, record, tiles, tile, gestures")
 }
 
 /// State for the gestures spike's C callback, which can't capture context.
@@ -225,4 +244,41 @@ enum GestureSpike {
   static var dockEvents = 0
   static var lastFingers = -1
   static var lastX: CGFloat = 0, lastY: CGFloat = 0
+}
+
+/// WindowManager's strip tiles, read through its accessibility tree.
+enum StripTiles {
+  struct Tile { let element: AXUIElement; let title: String; let frame: String; let actions: [String] }
+
+  static func list() -> [Tile] {
+    guard let pid = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.WindowManager").first?.processIdentifier
+    else { return [] }
+    let app = AXUIElementCreateApplication(pid)
+    var out: [Tile] = []
+    func children(_ e: AXUIElement) -> [AXUIElement] {
+      var v: CFTypeRef?
+      return AXUIElementCopyAttributeValue(e, kAXChildrenAttribute as CFString, &v) == .success ? (v as? [AXUIElement] ?? []) : []
+    }
+    func string(_ e: AXUIElement, _ a: String) -> String? {
+      var v: CFTypeRef?
+      return AXUIElementCopyAttributeValue(e, a as CFString, &v) == .success ? v as? String : nil
+    }
+    func walk(_ e: AXUIElement, depth: Int) {
+      guard depth < 6 else { return }
+      if string(e, kAXRoleAttribute) == kAXButtonRole as String {
+        var names: CFArray?
+        AXUIElementCopyActionNames(e, &names)
+        var p: CFTypeRef?, sz: CFTypeRef?
+        var point = CGPoint.zero, size = CGSize.zero
+        if AXUIElementCopyAttributeValue(e, kAXPositionAttribute as CFString, &p) == .success { AXValueGetValue(p as! AXValue, .cgPoint, &point) }
+        if AXUIElementCopyAttributeValue(e, kAXSizeAttribute as CFString, &sz) == .success { AXValueGetValue(sz as! AXValue, .cgSize, &size) }
+        out.append(Tile(element: e, title: string(e, kAXTitleAttribute) ?? "—",
+                        frame: String(format: "[%.0f,%.0f %.0f×%.0f]", point.x, point.y, size.width, size.height),
+                        actions: (names as? [String]) ?? []))
+      }
+      for c in children(e) { walk(c, depth: depth + 1) }
+    }
+    walk(app, depth: 0)
+    return out
+  }
 }

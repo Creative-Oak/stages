@@ -86,6 +86,12 @@ Machine: MacBook, single 1470×956 display, macOS 27.2 (26B123), Xcode 27.2 (fro
   polling, then 1 s), 0.55 % over the next 30 s. Nearly all of it is `CGWindowListCopyWindowInfo`
   (~150 windows). Deep idle (2 s) starts after 60 s without changes.
 
+## WindowManager's accessibility tree (M6 spike)
+
+| Behaviour | Status |
+|---|---|
+| WindowManager (pid of `com.apple.WindowManager`) exposes `AXApplication` (actions `AXShowDesktop`, `AXHideDesktop`) → `AXGroup id=sm.space` → `AXList id=sm.strip` → one `AXButton` per visible strip tile, titled with the tile's front window title, with actions **`AXPress`** and **`AXAddToStage`**. Tile frames match the thumbnails' union (e.g. `[-268,166 252×157]`). Overflow stages have no tiles. | read 2026-11-04 (`probe.swift --ax`, `stagesctl tiles`); what the actions do: **to verify** (`stagesctl tile <n> press|add`) |
+
 ## Open questions
 
 - When exactly does Stage Manager create and drop centre overlays? (It doesn't matter for reading any more; see #15.)
@@ -95,4 +101,3 @@ Machine: MacBook, single 1470×956 display, macOS 27.2 (26B123), Xcode 27.2 (fro
 - Does raising a background window of an overflow stage bring the whole stage forward?
 - `AppWindowGroupingBehavior` "All at Once" (0) vs "One at a Time" (1)?
 - Stages across Spaces and a second display.
-- Does WindowManager's AX tree expose strip tiles (e.g. `AXPress`)? `--ax` not yet run: Ghostty needs Accessibility.
