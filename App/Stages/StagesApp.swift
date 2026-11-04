@@ -22,7 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     model.start()
     let ring = RingPanel(model: model)
     self.ring = ring
-    model.onStep = { ring.show(target: $0) }
+    model.onStep = { ring.show(target: $0, ring: $1) }
     hotkeys = HotkeyTap(model: model, panel: SwitcherPanel(model: model))
     hotkeys?.start()
   }

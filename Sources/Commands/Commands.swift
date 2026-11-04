@@ -77,12 +77,32 @@ public enum Command: Equatable, Sendable {
     }
   }
 
-  /// Which of `names` a `switch?name=` value means: an exact (case-insensitive) match, else the
-  /// only name it is a prefix of. nil if none or ambiguous.
-  public static func resolve(name query: String, in names: [(id: UUID, name: String)]) -> UUID? {
-    let q = query.lowercased()
-    if let exact = names.first(where: { $0.name.lowercased() == q }) { return exact.id }
+  /// Which stage a `switch?name=` value means, in order: an exact (case-insensitive) match,
+  /// where a name someone chose beats a generated one ("Safari + Notes"); the only name it is a
+  /// prefix of; the only name in which every query word starts a word ("word" → "Microsoft
+  /// Word + Signal"). nil if none or ambiguous: it never guesses between equals.
+  public static func resolve(name query: String, chosen: [(id: UUID, name: String)],
+                             generated: [(id: UUID, name: String)] = []) -> UUID? {
+    let q = query.lowercased().trimmingCharacters(in: .whitespaces)
+    guard !q.isEmpty else { return nil }
+    for group in [chosen, generated] {
+      let exact = group.filter { $0.name.lowercased() == q }
+      if exact.count == 1 { return exact[0].id }
+      if exact.count > 1 { return nil }
+    }
+    let names = chosen + generated
     let prefixed = names.filter { $0.name.lowercased().hasPrefix(q) }
-    return prefixed.count == 1 ? prefixed[0].id : nil
+    if prefixed.count == 1 { return prefixed[0].id }
+    if prefixed.count > 1 { return nil }
+    let qWords = words(q)
+    let byWords = names.filter { n in
+      let w = words(n.name)
+      return qWords.allSatisfy { qw in w.contains { $0.hasPrefix(qw) } }
+    }
+    return byWords.count == 1 ? byWords[0].id : nil
+  }
+
+  static func words(_ s: String) -> [String] {
+    s.lowercased().split { !$0.isLetter && !$0.isNumber }.map(String.init)
   }
 }

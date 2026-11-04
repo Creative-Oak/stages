@@ -112,3 +112,35 @@ private func c(_ name: String?, _ apps: [String], _ pos: Candidate.Position = .s
     #expect(run(&d, [(3, 0.5, 0.5), (3, 0.55, 0.5), (3, 0.45, 0.5), (0, 0, 0)]) == [])
   }
 }
+
+@Suite struct RingWalkTests {
+  let a = UUID(), b = UUID(), c = UUID(), d = UUID()
+
+  @Test func walksFromTheLastTargetNotTheCentre() {
+    var w = RingWalk(ring: [a, b, c, d], from: a)
+    let live: Set = [a, b, c, d]
+    #expect(w.step(1, live: live) == b)
+    #expect(w.step(1, live: live) == c)
+    #expect(w.step(1, live: live) == d)
+    #expect(w.step(1, live: live) == a)
+    #expect(w.step(-1, live: live) == d)
+  }
+
+  @Test func skipsStagesThatDisappeared() {
+    var w = RingWalk(ring: [a, b, c, d], from: a)
+    #expect(w.step(1, live: [a, c, d]) == c)          // b merged away mid-walk
+    #expect(w.step(1, live: [a, b, c, d]) == d)       // b back: still walks on from c
+  }
+
+  @Test func startsAtTheTopWhenTheCentreIsNotInTheRing() {
+    var w = RingWalk(ring: [a, b, c], from: nil)
+    #expect(w.step(1, live: [a, b, c]) == a)
+    var back = RingWalk(ring: [a, b, c], from: nil)
+    #expect(back.step(-1, live: [a, b, c]) == c)
+  }
+
+  @Test func needsAnotherLiveStage() {
+    var w = RingWalk(ring: [a, b], from: a)
+    #expect(w.step(1, live: [a]) == nil)
+  }
+}

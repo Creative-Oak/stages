@@ -47,6 +47,8 @@ final class AppModel {
   /// exactly one stage; the next committed snapshot confirms or corrects it.
   private func activated(_ pid: Int32?) {
     activatedAt = .now
+    // While stepping, activations come from Stage Manager's animation; the target stands.
+    guard !steppingActive else { return }
     let containing = pid.map { pid in stages.filter { $0.stage.windows.contains { $0.pid == pid } } } ?? []
     // Every activation replaces the guess (or clears it), so an older one can't linger.
     provisionalCurrent = containing.count == 1 ? containing[0].id : nil
@@ -72,7 +74,8 @@ final class AppModel {
     stages = store.reconcile(snapshot)
     records = Array(store.records.values)
     writeState()
-    provisionalCurrent = nil
+    // Mid-walk, intermediate snapshots don't move the menu bar off the target.
+    if !steppingActive || committedCentre == provisionalCurrent { provisionalCurrent = nil }
     if let settle = poller.lastSettle {
       let ms = Int(settle.duration.components.seconds * 1000 + settle.duration.components.attoseconds / 1_000_000_000_000_000)
       let sinceActivation = activatedAt.map { ContinuousClock.now - $0 }
@@ -150,9 +153,11 @@ final class AppModel {
       }
       switchTo(s.id)
     case let .switchToName(name):
+      // Names people chose first (they win exact ties), then generated ones ("Safari + Notes").
       let named = stages.compactMap { s in s.record.name.map { (id: s.id, name: $0) } }
-      guard let id = Command.resolve(name: name, in: named) else {
-        return report("No open stage is called “\(name)”.")
+      let generated = stages.filter { $0.record.name == nil }.map { (id: $0.id, name: $0.appsTitle) }
+      guard let id = Command.resolve(name: name, chosen: named, generated: generated) else {
+        return report("No open stage matches “\(name)” (or several do).")
       }
       switchTo(id)
     case let .switchToID(id):
@@ -221,20 +226,34 @@ final class AppModel {
   /// Next/previous in the stable cycle (slots first, then by age). Rapid presses only move the
   /// target (the menu bar follows at once); the window is raised after a short pause, so a burst
   /// of presses costs one Stage Manager animation.
+  ///
+  /// A burst of steps is one session over a ring frozen at its first step: each step moves one
+  /// place from the last target, whatever Stage Manager shows meanwhile.
   func step(_ by: Int) {
-    guard let target = SwitcherOrder.neighbour(of: current?.id, in: candidates, step: by) else { return }
-    provisionalCurrent = target.id
-    onStep?(target.id)
+    let now = ContinuousClock.now
+    var walk: RingWalk
+    if let session = ringSession, now < session.until {
+      walk = session.walk
+    } else {
+      walk = RingWalk(ring: SwitcherOrder.cycle(candidates).map(\.id), from: committedCentre ?? current?.id)
+    }
+    guard let target = walk.step(by, live: Set(stages.map(\.id))) else { return }
+    ringSession = (walk, now + Self.ringSessionLength)
+    provisionalCurrent = target
+    onStep?(target, walk.ring)
     pendingStep?.cancel()
     pendingStep = Task { [weak self] in
       try? await Task.sleep(for: .milliseconds(180))
       guard !Task.isCancelled else { return }
-      self?.switchTo(target.id)
+      self?.switchTo(target)
     }
   }
   @ObservationIgnored private var pendingStep: Task<Void, Never>?
-  /// Called with each step's target (the ring panel shows it).
-  @ObservationIgnored var onStep: ((UUID) -> Void)?
+  @ObservationIgnored private var ringSession: (walk: RingWalk, until: ContinuousClock.Instant)?
+  private static let ringSessionLength: Duration = .milliseconds(2500)
+  private var steppingActive: Bool { ringSession.map { ContinuousClock.now < $0.until } ?? false }
+  /// Called with each step's target and the frozen ring (the ring panel shows them).
+  @ObservationIgnored var onStep: ((UUID, [UUID]) -> Void)?
   /// Only the newest switch may retry or report; older ones stop when superseded.
   @ObservationIgnored private var switchGeneration = 0
 

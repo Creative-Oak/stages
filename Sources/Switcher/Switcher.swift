@@ -136,3 +136,31 @@ public struct SwipeDetector: Sendable {
     return dx < 0 ? 1 : -1
   }
 }
+
+/// One stepping session over a ring frozen at its first step, so repeated presses move along a
+/// list that doesn't change under them (Stage Manager reshuffles, groups and splits stages while
+/// it animates). Each step starts from the last target, not from what's in the centre.
+public struct RingWalk: Sendable {
+  public let ring: [UUID]
+  public private(set) var position: UUID?
+
+  public init(ring: [UUID], from position: UUID?) {
+    self.ring = ring; self.position = position
+  }
+
+  /// The next live entry `by` places along (wrapping), skipping entries no longer on screen.
+  public mutating func step(_ by: Int, live: Set<UUID>) -> UUID? {
+    let n = ring.count
+    guard n > 0, by != 0 else { return nil }
+    let start = position.flatMap { ring.firstIndex(of: $0) } ?? (by > 0 ? -1 : n)
+    let dir = by > 0 ? 1 : -1
+    var remaining = abs(by), i = start
+    for _ in 0..<(n * abs(by)) {
+      i = ((i + dir) % n + n) % n
+      guard live.contains(ring[i]), ring[i] != position || remaining > 1 else { continue }
+      remaining -= 1
+      if remaining == 0 { position = ring[i]; return ring[i] }
+    }
+    return nil
+  }
+}

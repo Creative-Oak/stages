@@ -37,11 +37,36 @@ private func parse(_ s: String) -> Result<Command, Command.ParseError> { Command
   @Test func nameResolution() {
     let a = UUID(), b = UUID(), c = UUID()
     let names = [(id: a, name: "Swifttap"), (id: b, name: "Lodestone"), (id: c, name: "Lodestone Library")]
-    #expect(Command.resolve(name: "swifttap", in: names) == a)
-    #expect(Command.resolve(name: "swift", in: names) == a)
-    #expect(Command.resolve(name: "lodestone", in: names) == b)        // exact beats prefix
-    #expect(Command.resolve(name: "lodestone l", in: names) == c)
-    #expect(Command.resolve(name: "lode", in: names) == nil)            // ambiguous
-    #expect(Command.resolve(name: "x", in: names) == nil)
+    #expect(Command.resolve(name: "swifttap", chosen: names) == a)
+    #expect(Command.resolve(name: "swift", chosen: names) == a)
+    #expect(Command.resolve(name: "lodestone", chosen: names) == b)        // exact beats prefix
+    #expect(Command.resolve(name: "lodestone l", chosen: names) == c)
+    #expect(Command.resolve(name: "lode", chosen: names) == nil)            // ambiguous
+    #expect(Command.resolve(name: "x", chosen: names) == nil)
+  }
+}
+
+@Suite struct GeneratedNameTests {
+  let named = UUID(), wordSignal = UUID(), safari = UUID(), finderA = UUID(), finderB = UUID()
+  var chosen: [(id: UUID, name: String)] { [(named, "Safari")] }   // a stage someone named "Safari"
+  var generated: [(id: UUID, name: String)] {
+    [(wordSignal, "Microsoft Word + Signal"), (safari, "Safari"), (finderA, "Finder"), (finderB, "Finder")]
+  }
+  func resolve(_ q: String) -> UUID? { Command.resolve(name: q, chosen: chosen, generated: generated) }
+
+  @Test func matchesGeneratedNames() {
+    #expect(resolve("microsoft word + signal") == wordSignal)
+    #expect(resolve("micro") == wordSignal)
+    #expect(resolve("word") == wordSignal)        // word prefix
+    #expect(resolve("sig") == wordSignal)
+  }
+
+  @Test func chosenNamesWinExactTies() {
+    #expect(resolve("Safari") == named)
+  }
+
+  @Test func ambiguousGeneratedNamesDoNotGuess() {
+    #expect(resolve("finder") == nil)   // two unnamed Finder stages
+    #expect(resolve("fin") == nil)
   }
 }

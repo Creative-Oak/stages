@@ -8,6 +8,8 @@ import Switcher
 final class RingPanel {
   @Observable final class State {
     var target: UUID?
+    /// The ring frozen for this stepping session.
+    var ring: [UUID] = []
   }
 
   private let model: AppModel
@@ -17,10 +19,11 @@ final class RingPanel {
 
   init(model: AppModel) { self.model = model }
 
-  func show(target: UUID) {
+  func show(target: UUID, ring: [UUID]) {
     state.target = target
+    state.ring = ring
+    panel.alphaValue = 1   // also undoes a fade already under way
     if !panel.isVisible {
-      panel.alphaValue = 1
       position()
       panel.orderFrontRegardless()
     }
@@ -66,7 +69,8 @@ struct RingView: View {
   let model: AppModel
 
   var body: some View {
-    let ring = SwitcherOrder.cycle(model.candidates)
+    let byID = Dictionary(uniqueKeysWithValues: model.candidates.map { ($0.id, $0) })
+    let ring = state.ring.compactMap { byID[$0] }
     VStack(alignment: .leading, spacing: 0) {
       HStack {
         Theme.label("Ring")
