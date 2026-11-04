@@ -19,6 +19,9 @@ struct NativeSwitcherView: View {
   static let spacing: CGFloat = 2
   static let perRow = 11
 
+  /// Icon size when a stage shows `n` apps, all equal.
+  static func stackedSize(_ n: Int) -> CGFloat { [iconSize, 54, 46][min(max(n, 1), 3) - 1] }
+
   /// The icon row's width: the text below never makes the panel wider than this.
   private var rowWidth: CGFloat {
     let n = CGFloat(min(max(items.count, 1), Self.perRow))
@@ -63,23 +66,26 @@ struct NativeSwitcherView: View {
 
   private func item(_ c: Candidate, isSelected: Bool) -> some View {
     let icons: [NSImage] = if let w = windows?[c.id] { [IconCache.icon(for: w.pid, bundleID: w.bundleID)].compactMap { $0 } }
-                           else { stage(c)?.appIcons ?? [] }
+                           else { stage(c).map(model.appIcons) ?? [] }
     return VStack(spacing: 3) {
-      ZStack(alignment: .bottomTrailing) {
-        if let front = icons.first {
-          Image(nsImage: front).resizable().interpolation(.high).frame(width: Self.iconSize, height: Self.iconSize)
-        } else {
+      // One icon per app, all the same size (up to three), stepped diagonally from the top left;
+      // the most recently used app is on top, at the bottom right.
+      ZStack(alignment: .topLeading) {
+        let shown = Array(icons.prefix(3))
+        if shown.isEmpty {
           RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.white.opacity(0.1))
             .frame(width: Self.iconSize, height: Self.iconSize)
-        }
-        // The stage's other apps, as small badges.
-        HStack(spacing: -7) {
-          ForEach(Array(icons.dropFirst().prefix(3).enumerated()), id: \.offset) { _, icon in
-            Image(nsImage: icon).resizable().interpolation(.high).frame(width: 24, height: 24)
-              .shadow(color: .black.opacity(0.3), radius: 1.5, y: 1)
+        } else {
+          let size = Self.stackedSize(shown.count)
+          let step = shown.count > 1 ? (Self.iconSize + 4 - size) / CGFloat(shown.count - 1) : 0
+          ForEach(Array(shown.enumerated().reversed()), id: \.offset) { i, icon in
+            let place = CGFloat(shown.count - 1 - i)   // 0 = back (oldest), top left
+            Image(nsImage: icon).resizable().interpolation(.high)
+              .frame(width: size, height: size)
+              .shadow(color: .black.opacity(i == shown.count - 1 ? 0 : 0.28), radius: 2.5, y: 1)   // casts onto the ones behind
+              .offset(x: place * step + (shown.count == 1 ? 3 : 0), y: place * step * 0.85 + (shown.count == 1 ? 1 : 0))
           }
         }
-        .offset(x: 5, y: 3)
       }
       .frame(width: Self.iconSize + 6, height: Self.iconSize + 2)
       .opacity(c.position == .overflow ? 0.55 : 1)

@@ -353,6 +353,16 @@ final class AppModel {
     UUID(uuidString: String(format: "57A6E500-0000-4000-8000-%012X", id))!
   }
 
+  /// A stage's app icons, most recently used app first (then front to back).
+  func appIcons(_ stage: IdentifiedStage) -> [NSImage] {
+    func rank(_ pid: Int32) -> Int { appRecency.firstIndex(of: pid) ?? Int.max }
+    var seen = Set<Int32>()
+    return stage.stage.windows.sorted { (rank($0.pid), $0.z) < (rank($1.pid), $1.z) }.compactMap { w in
+      guard seen.insert(w.pid).inserted else { return nil }
+      return IconCache.icon(for: w.pid, bundleID: w.bundleID)
+    }
+  }
+
   /// Bring one window of the current stage forward (the in-stage switcher). As with ⌘⇥: an app
   /// whose windows are all in this stage is made frontmost first (the instant part), then the
   /// window is raised; an app with windows in other stages gets the window raised first, so
