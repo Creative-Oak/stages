@@ -11,14 +11,21 @@ struct NativeSwitcherView: View {
   let selected: UUID?
   let model: AppModel
 
-  static let iconSize: CGFloat = 54
-  static let itemWidth: CGFloat = 70
-  static let perRow = 12
+  static let iconSize: CGFloat = 68
+  static let itemWidth: CGFloat = 84
+  static let spacing: CGFloat = 2
+  static let perRow = 11
+
+  /// The icon row's width: the text below never makes the panel wider than this.
+  private var rowWidth: CGFloat {
+    let n = CGFloat(min(max(items.count, 1), Self.perRow))
+    return n * Self.itemWidth + (n - 1) * Self.spacing
+  }
 
   var body: some View {
     let current = items.first { $0.id == selected }
     VStack(spacing: 6) {
-      LazyVGrid(columns: Array(repeating: GridItem(.fixed(Self.itemWidth), spacing: 2), count: min(max(items.count, 1), Self.perRow)),
+      LazyVGrid(columns: Array(repeating: GridItem(.fixed(Self.itemWidth), spacing: Self.spacing), count: min(max(items.count, 1), Self.perRow)),
                 spacing: 4) {
         ForEach(items) { c in item(c, isSelected: c.id == selected) }
       }
@@ -32,7 +39,7 @@ struct NativeSwitcherView: View {
           .lineLimit(1)
           .truncationMode(.middle)
       }
-      .frame(maxWidth: CGFloat(min(max(items.count, 3), Self.perRow)) * (Self.itemWidth + 2))
+      .frame(width: max(rowWidth, 180))   // truncates (middle) instead of widening the panel
     }
     .padding(.horizontal, 10).padding(.top, 10).padding(.bottom, 9)
     .glassEffect(.regular, in: .rect(cornerRadius: 22, style: .continuous))
