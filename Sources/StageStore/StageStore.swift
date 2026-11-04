@@ -39,8 +39,42 @@ public final class StageStore {
   }
 
   /// Match the snapshot's stages to records, creating, merging and reviving records as needed.
+  /// An impossible snapshot (see `implausibility`) is not learned from: the previous result is
+  /// returned unchanged.
   public func reconcile(_ snapshot: StageSnapshot) -> [IdentifiedStage] {
     guard snapshot.isAvailable else { return [] }
+    if let why = implausibility(snapshot.stages) {
+      lastRejection = why
+      onEvent?("rejected snapshot: \(why)")
+      return lastResult
+    }
+    lastRejection = nil
+    let result = learn(snapshot)
+    lastResult = result
+    return result
+  }
+
+  /// Why the last snapshot was ignored, if it was.
+  public private(set) var lastRejection: String?
+  private var lastResult: [IdentifiedStage] = []
+
+  /// Stage Manager changes one step at a time: a new window, or one stage dragged into another.
+  /// So a visible stage holding windows of three or more known records is a misread (Mission
+  /// Control, a drag in flight, an animation), not a stage.
+  func implausibility(_ stages: [Stage]) -> String? {
+    var owner: [UInt32: UUID] = [:]
+    // Active records only: a dormant record shares its windows with the record that absorbed it.
+    for r in records.values where r.state == .active { for id in r.windowIDs { owner[id] = r.id } }
+    for s in stages where !s.pooled {
+      let owners = Set(s.windows.compactMap { owner[$0.id] })
+      if owners.count >= 3 {
+        return "\(s.position.rawValue) stage with windows of \(owners.count) records (\(s.windows.count) windows)"
+      }
+    }
+    return nil
+  }
+
+  private func learn(_ snapshot: StageSnapshot) -> [IdentifiedStage] {
     let t = now()
     let stages = regroupPooled(snapshot.stages)
     let inputs = stages.map {
@@ -120,14 +154,11 @@ public final class StageStore {
       for id in r.windowIDs { owner[id] = r.id }   // most recently active record wins a shared ID
     }
     var result: [Stage] = []
-    var merged: [String: Int] = [:]   // record id or pool hint -> index in result
+    var merged: [UUID: Int] = [:]   // record id -> index in result
     for s in stages {
-      guard s.pooled, let wid = s.windows.first?.id else { result.append(s); continue }
-      // History first; without it, the reader's hint (same app, under All at Once).
-      guard let key = owner[wid].map({ "record:\($0)" }) ?? s.poolHint.map({ "hint:\($0)" }) else {
-        result.append(s); continue
-      }
-      let rid = key
+      // Without history the grouping is unknown, and windows of one app can be in different
+      // stages, so an unknown pooled window stays on its own.
+      guard s.pooled, let wid = s.windows.first?.id, let rid = owner[wid] else { result.append(s); continue }
       if let i = merged[rid] {
         result[i].windows = (result[i].windows + s.windows).sorted { $0.z < $1.z }
         result[i].frame = result[i].frame.union(s.frame)

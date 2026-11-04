@@ -340,37 +340,16 @@ private func tempDir() -> URL {
   }
 }
 
-@MainActor @Suite struct PoolHintTests {
-  private func hinted(_ id: UInt32, _ hint: String, order: Int) -> Stage {
-    var s = pooled(id, order: order)
-    s.poolHint = hint
-    return s
-  }
-
-  @Test func sameAppWithoutHistoryGroups() {
-    let store = StageStore(directory: nil)
-    let s = store.reconcile(snapshot([hinted(1, "com.apple.finder", order: 0), hinted(2, "com.apple.finder", order: 1),
-                                      hinted(3, "com.apple.iCal", order: 2)]))
-    #expect(s.map(\.stage.windowIDs) == [[1, 2], [3]])
-    #expect(s.map(\.stage.order) == [0, 1])
-  }
-
-  @Test func historyBeatsTheHint() {
-    let store = StageStore(directory: nil)
-    _ = store.reconcile(snapshot([stage([1]), stage([2])]))   // seen as two stages in the strip
-    let s = store.reconcile(snapshot([hinted(1, "com.apple.finder", order: 0), hinted(2, "com.apple.finder", order: 1)]))
-    #expect(s.count == 2)
-  }
-
-  @Test func recordedFinderGroupInOverflowWithoutHistory() throws {
-    // `curious`: Finder's three windows are one stage in overflow; a fresh store has no history.
+@MainActor @Suite struct NoHistoryOverflowTests {
+  @Test func recordedFinderGroupWithoutHistoryStaysSeparate() throws {
+    // `curious`: Finder's three windows are one overflow stage, but a fresh store can't know
+    // that (one app's windows can live in different stages), so it doesn't guess.
     let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
       .appendingPathComponent("../StageReaderTests/Fixtures/curious.json")
     let fixture = try Fixture.decoder().decode(Fixture.self, from: Data(contentsOf: url))
     let s = StageStore(directory: nil).reconcile(StageReader.read(fixture.frames[0]))
     let overflow = s.filter { $0.stage.position == .overflow }.map(\.stage.owners)
-    #expect(overflow == [["Finder"], ["Calendar"], ["Maps"], ["Notes"]])
-    #expect(s.filter { $0.stage.position == .overflow }[0].stage.windows.count == 3)
+    #expect(overflow == [["Finder"], ["Finder"], ["Finder"], ["Calendar"], ["Maps"], ["Notes"]])
   }
 }
 
@@ -418,5 +397,47 @@ private func tempDir() -> URL {
     _ = store.reconcile(snapshot([stage([1, 2])]))
     #expect(events.count == 1 && events[0].hasPrefix("merge:"))
     #expect(!events[0].contains("Secret"))
+  }
+}
+
+@MainActor @Suite struct ImplausibleSnapshotTests {
+  @Test func allWindowsInOneStageIsIgnored() {
+    // Mission Control (or similar): every window shows at once with no thumbnails matched.
+    let store = StageStore(directory: nil)
+    var events: [String] = []
+    store.onEvent = { events.append($0) }
+    let good = store.reconcile(snapshot([stage([1], .centre), stage([2, 3]), stage([4]), stage([5])]))
+    store.rename(good[1].id, to: "B")
+    let before = store.records
+    let bogus = store.reconcile(snapshot([stage([1, 2, 3, 4, 5], .centre)]))
+    #expect(bogus.map(\.id) == good.map(\.id))   // last good state, unchanged
+    #expect(store.records == before)
+    #expect(store.lastRejection != nil)
+    #expect(events.last?.hasPrefix("rejected snapshot") == true)
+    // Back to normal: same identities, and B wasn't touched.
+    let after = store.reconcile(snapshot([stage([1], .centre), stage([2, 3]), stage([4]), stage([5])]))
+    #expect(after.map(\.id) == good.map(\.id))
+    #expect(after[1].record.name == "B" && store.lastRejection == nil)
+  }
+
+  @Test func secondDragIntoAMergedGroupIsStillAMerge() {
+    let store = StageStore(directory: nil)
+    let s = store.reconcile(snapshot([stage([1], .centre), stage([2]), stage([3])]))
+    _ = store.reconcile(snapshot([stage([1, 2], .centre), stage([3])]))      // first drag
+    let second = store.reconcile(snapshot([stage([1, 2, 3], .centre)]))      // second drag
+    #expect(store.lastRejection == nil)
+    #expect(second.count == 1 && second[0].id == s[0].id)
+    if case .merged = second[0].reason {} else { Issue.record("\(second[0].reason)") }
+  }
+}
+
+@MainActor @Suite struct StrictFingerprintTests {
+  @Test func extraAppMeansNoFingerprintMatch() {
+    // A Finder + Mail stage must not inherit a Finder-only stage's name.
+    let store = StageStore(directory: nil)
+    let id = store.reconcile(snapshot([stage([1], apps: ["Finder"], titles: ["Recents"])]))[0].id
+    store.rename(id, to: "B")
+    let later = store.reconcile(snapshot([stage([7, 8], apps: ["Finder", "Mail"], titles: ["Recents", "New Message"])]))
+    #expect(later[0].id != id && later[0].record.name == nil)
   }
 }

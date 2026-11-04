@@ -47,11 +47,11 @@ public struct Fingerprint: Codable, Hashable, Sendable {
 
   public var isEmpty: Bool { apps.isEmpty }
 
-  /// 0…1. Zero unless the app sets mostly agree; then apps, titles and documents are weighed.
+  /// 0…1. Zero unless the app sets are identical (the brief: "same bundle IDs + similar
+  /// titles"); then titles and documents decide.
   public static func similarity(_ a: Fingerprint, _ b: Fingerprint) -> Double {
-    let appScore = jaccard(a.apps, b.apps)
-    guard appScore >= 0.5 else { return 0 }
-    var total = 0.5 * appScore, weight = 0.5
+    guard !a.apps.isEmpty, a.apps == b.apps else { return 0 }
+    var total = 0.5, weight = 0.5
     if !a.titles.isEmpty && !b.titles.isEmpty {
       total += 0.35 * titleSimilarity(a.titles, b.titles); weight += 0.35
     }

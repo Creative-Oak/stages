@@ -47,6 +47,7 @@ struct MatchingDebugView: View {
   @ViewBuilder private var notes: some View {
     let lines = [
       model.discardedStaleIDs ? "Window IDs from before the last reboot were discarded; records match by fingerprint." : nil,
+      model.store.lastRejection.map { "Ignored the last snapshot, showing the one before: \($0)." },
       DocumentResolver.isTrusted ? nil : "No Accessibility permission: fingerprints have apps and titles, but no document paths.",
     ].compactMap { $0 }
     if !lines.isEmpty {
