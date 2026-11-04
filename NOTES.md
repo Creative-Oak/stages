@@ -91,6 +91,7 @@ Machine: MacBook, single 1470×956 display, macOS 27.2 (26B123), Xcode 27.2 (fro
 | Behaviour | Status |
 |---|---|
 | WindowManager (pid of `com.apple.WindowManager`) exposes `AXApplication` (actions `AXShowDesktop`, `AXHideDesktop`) → `AXGroup id=sm.space` → `AXList id=sm.strip` → one `AXButton` per visible strip tile, titled with the tile's front window title, with actions **`AXPress`** and **`AXAddToStage`**. Tile frames match the thumbnails' union (e.g. `[-268,166 252×157]`). Overflow stages have no tiles. | read 2026-11-04 (`probe.swift --ax`, `stagesctl tiles`); what the actions do: **to verify** (`stagesctl tile <n> press|add`) |
+| First try (2026-11-04, strip auto-hidden, tiles at x −268): `AXAddToStage` on a tile and `AXPress` on another both returned success, but nothing changed on screen. Afterwards the strip no longer slid in on hover, even with Stages quit and an invisible full-screen `screencaptureui` overlay (left over from a screen recording) removed. Turning Stage Manager off and on fixed it. Cause unclear: the AX actions, or the overlay. | observed 2026-11-04; **retest** with the strip visible and no overlay |
 
 ## Open questions
 
