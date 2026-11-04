@@ -353,6 +353,33 @@ final class AppModel {
     UUID(uuidString: String(format: "57A6E500-0000-4000-8000-%012X", id))!
   }
 
+  // MARK: Quit and close from the switcher (Q / W, as in macOS's ⌘⇥)
+
+  /// W on a stage: close its windows.
+  func closeStage(_ id: UUID) {
+    guard let s = stages.first(where: { $0.id == id }) else { return }
+    StageActivator.close(s.stage.windows)
+    poller.poke()
+  }
+
+  /// Q on a stage: quit its apps, except an app that also has windows in other stages, whose
+  /// windows here are closed instead (quitting it would empty those stages too).
+  func quitStage(_ id: UUID) {
+    guard let s = stages.first(where: { $0.id == id }) else { return }
+    var close: [StageWindow] = []
+    for pid in Set(s.stage.windows.map(\.pid)) {
+      let elsewhere = stages.contains { $0.id != id && $0.stage.windows.contains { $0.pid == pid } }
+      if elsewhere { close += s.stage.windows.filter { $0.pid == pid } }
+      else { NSRunningApplication(processIdentifier: pid)?.terminate() }
+    }
+    StageActivator.close(close)
+    poller.poke()
+  }
+
+  /// W in the in-stage switcher: close that window. Q: quit its app.
+  func closeWindow(_ w: StageWindow) { StageActivator.close([w]); poller.poke() }
+  func quitApp(of w: StageWindow) { NSRunningApplication(processIdentifier: w.pid)?.terminate(); poller.poke() }
+
   /// A stage's app icons, most recently used app first (then front to back).
   func appIcons(_ stage: IdentifiedStage) -> [NSImage] {
     func rank(_ pid: Int32) -> Int { appRecency.firstIndex(of: pid) ?? Int.max }

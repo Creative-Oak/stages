@@ -7,7 +7,7 @@ import Switcher
 
 /// Global keyboard shortcuts through a `CGEventTap` (needs Accessibility):
 ///   hold ⌥ (configurable) + ⇥  open the switcher on the previous stage; ⇥/⇧⇥, ←/→ or ↑/↓ step;
-///                              a stage's slot key (1–9, 0, a–z) goes straight there; release ⌥
+///                              a stage's slot key (1–9, 0, a–z but q/w) goes straight there; Q quits, W closes; release ⌥
 ///                              to switch; Esc cancels; ↩ switches.
 ///   ⌃⌥ ←/↑ and →/↓            previous / next stage in the stable cycle.
 ///   3- or 4-finger swipe        (opt-in) left = next, right = previous; never swallowed, so
@@ -143,10 +143,21 @@ final class HotkeyTap {
       case Key.escape: cancel(); return true
       case Key.returnKey, Key.keypadEnter: commit(); return true
       default:
+        let char = NSEvent(cgEvent: event)?.charactersIgnoringModifiers?.lowercased()
+        // Q quits, W closes the selected item, as in macOS's ⌘⇥; the session goes on without it.
+        if char == "q" || char == "w", let item = s.selected {
+          let quit = char == "q", window = windowItems?[item.id]
+          later {
+            if let window { quit ? self.model.quitApp(of: window) : self.model.closeWindow(window) }
+            else { quit ? self.model.quitStage(item.id) : self.model.closeStage(item.id) }
+          }
+          s.remove(item.id)
+          if s.visible.isEmpty { cancel(); return true }
+          break
+        }
         // A slot key, typed with the modifier held (so use the unmodified character): switch
         // straight to that stage.
-        if let key = NSEvent(cgEvent: event)?.charactersIgnoringModifiers?.lowercased(),
-           SlotKeys.isValid(key), let target = s.candidate(slot: key) {
+        if let key = char, SlotKeys.isValid(key), let target = s.candidate(slot: key) {
           commit(to: target.id)
         }
         return true

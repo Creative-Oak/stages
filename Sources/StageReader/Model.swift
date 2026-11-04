@@ -141,10 +141,13 @@ public struct Fixture: Codable, Sendable {
   }
 }
 
-/// Slot keys, in assignment order: 1–9, then 0, then a–z (36 in all). A stage's slot is the key
-/// that reaches it (switcher, Raycast Hyper+key).
+/// Slot keys, in assignment order: 1–9, then 0, then a–z without q and w (34 in all). A stage's
+/// slot is the key that reaches it (switcher, Raycast Hyper+key). Q and W are kept for quitting
+/// and closing from the switcher, as in macOS's ⌘⇥.
 public enum SlotKeys {
-  public static let all: [String] = (1...9).map(String.init) + ["0"] + "abcdefghijklmnopqrstuvwxyz".map(String.init)
+  public static let reserved: Set<String> = ["q", "w"]
+  public static let all: [String] = (1...9).map(String.init) + ["0"]
+    + "abcdefghijklmnopqrstuvwxyz".map(String.init).filter { !reserved.contains($0) }
 
   /// Position in assignment order; nil if not a slot key.
   public static func index(of key: String) -> Int? { all.firstIndex(of: key.lowercased()) }

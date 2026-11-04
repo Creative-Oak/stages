@@ -177,3 +177,15 @@ private func c(_ name: String?, _ apps: [String], _ pos: Candidate.Position = .s
     #expect(s.all.map(\.name) == ["A", "B", "New"])
   }
 }
+
+@Suite struct SwitcherRemoveTests {
+  @Test func quittingTheSelectedItemKeepsTheSelectionInPlace() {
+    let a = c("A", ["A"], .centre, active: 10), b = c("B", ["B"], .strip, active: 9), d = c("D", ["D"], .strip, active: 8)
+    var s = SwitcherSession(candidates: [a, b, d])
+    #expect(s.selected?.id == b.id)
+    s.remove(b.id)
+    #expect(s.selected?.id == d.id)
+    s.remove(d.id)
+    #expect(s.selected?.id == a.id)
+  }
+}

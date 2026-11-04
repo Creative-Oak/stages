@@ -124,6 +124,12 @@ public struct SwitcherSession: Sendable {
     }
   }
 
+  /// An item quit or closed from the switcher: it goes at once, the selection stays in place.
+  public mutating func remove(_ id: UUID) {
+    all.removeAll { $0.id == id }
+    selection = min(selection, max(visible.count - 1, 0))
+  }
+
   public mutating func backspace() {
     guard !query.isEmpty else { return }
     query.removeLast()

@@ -129,6 +129,26 @@ nonisolated enum StageActivator {
     return target == nil ? .appOnly : .raised
   }
 
+  /// Close `window` with its close button (the app may ask to save first). Off the main thread.
+  static func close(_ windows: [StageWindow]) {
+    guard AXIsProcessTrusted(), !windows.isEmpty else { return }
+    Task.detached(priority: .userInitiated) {
+      for w in windows {
+        let app = AXUIElementCreateApplication(w.pid)
+        var target = links.withLock { $0.element(for: w.id) }
+        if target == nil {
+          let ax = axWindows(app)
+          target = links.withLock { $0.pick(w.id, title: w.title, frame: w.frame, aheadSameTitle: [], among: ax) }
+        }
+        guard let el = target?.element else { continue }
+        var button: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(el, kAXCloseButtonAttribute as CFString, &button) == .success, let button,
+              CFGetTypeID(button) == AXUIElementGetTypeID() else { continue }
+        AXUIElementPerformAction(button as! AXUIElement, kAXPressAction as CFString)
+      }
+    }
+  }
+
   /// The app's focused AX window is the CG window in front in the centre, when the titles agree.
   private static func linkFocused(_ w: StageWindow) {
     let app = AXUIElementCreateApplication(w.pid)

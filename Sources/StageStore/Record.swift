@@ -138,6 +138,9 @@ public struct StageRecord: Codable, Hashable, Identifiable, Sendable {
     // Slots were 1–9 integers before keys (version 2 files).
     if let n = try? c.decodeIfPresent(Int.self, forKey: .slot) { slot = String(n) }
     else { slot = try c.decodeIfPresent(String.self, forKey: .slot) }
+    // A key no longer offered (q and w became switcher commands) is dropped; an automatic one is
+    // reassigned on the next snapshot.
+    if let s = slot, !SlotKeys.isValid(s) { slot = nil }
     autoSlot = try c.decodeIfPresent(Bool.self, forKey: .autoSlot) ?? false
     autoInk = try c.decodeIfPresent(Bool.self, forKey: .autoInk) ?? false
     windowIDs = try c.decode(Set<UInt32>.self, forKey: .windowIDs)
