@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import CoreGraphics
 import os
 import StageReader
@@ -32,8 +33,14 @@ final class HotkeyTap {
   private static let log = Logger(subsystem: "dk.creativeoak.stages", category: "hotkeys")
 
   private enum Key {
-    static let tab: Int64 = 48, grave: Int64 = 50, escape: Int64 = 53, returnKey: Int64 = 36, keypadEnter: Int64 = 76
+    static let tab: Int64 = 48, escape: Int64 = 53, returnKey: Int64 = 36, keypadEnter: Int64 = 76
     static let delete: Int64 = 51, left: Int64 = 123, right: Int64 = 124, down: Int64 = 125, up: Int64 = 126
+    /// The key under Esc: ` on ANSI (US) keyboards (code 50); on ISO keyboards (Danish: $ / §)
+    /// it's code 10, and 50 is the < key by left Shift, so 50 only counts on ANSI.
+    static let underEscISO: Int64 = 10, graveANSI: Int64 = 50
+    static func isUnderEsc(_ key: Int64) -> Bool {
+      key == underEscISO || (key == graveANSI && KBGetLayoutType(Int16(LMGetKbdType())) != kKeyboardISO)
+    }
     /// ⌘W, ⌘Q, ⌘M, ⌘H close, quit, minimise or hide: the stages change, so look sooner.
     static let windowChanging: Set<Int64> = [13, 12, 46, 4]
   }
@@ -129,7 +136,8 @@ final class HotkeyTap {
 
     if var s = session {
       switch key {
-      case Key.tab, Key.grave: s.step(shift ? -1 : 1)
+      case Key.tab: s.step(shift ? -1 : 1)
+      case _ where Key.isUnderEsc(key): s.step(shift ? -1 : 1)
       case Key.down, Key.right: s.step(1)
       case Key.up, Key.left: s.step(-1)
       case Key.escape: cancel(); return true
@@ -156,7 +164,7 @@ final class HotkeyTap {
 
     if held == .maskCommand, Key.windowChanging.contains(key) { later { self.model.pokePoller() } }
 
-    if key == Key.grave, held == modifier.flag {
+    if Key.isUnderEsc(key), held == modifier.flag {
       // The in-stage switcher: this stage's windows. Swallowed even with one window, so the
       // modifier's own ` shortcut (⌘`, which under Stage Manager swaps stages' windows) never fires.
       let (candidates, windows) = model.stageWindowCandidates()
