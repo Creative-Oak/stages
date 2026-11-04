@@ -184,9 +184,34 @@ case "tiles", "tile":
     // Reveal the strip (pointer to the left edge), Shift-click the tile, put the pointer back.
     let back = CGEvent(source: nil)?.location ?? .zero
     let main = CGDisplayBounds(CGMainDisplayID())
-    func move(_ p: CGPoint) { CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: p, mouseButton: .left)?.post(tap: .cghidEventTap) }
-    move(CGPoint(x: main.minX + 1, y: main.midY))
-    Thread.sleep(forTimeInterval: 0.6)
+    func move(_ p: CGPoint, dx: Int64 = 0, dy: Int64 = 0) {
+      let e = CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: p, mouseButton: .left)
+      e?.setIntegerValueField(.mouseEventDeltaX, value: dx)
+      e?.setIntegerValueField(.mouseEventDeltaY, value: dy)
+      e?.post(tap: .cghidEventTap)
+    }
+    // Approach the left edge in steps, then keep pushing against it, like a hand would: a single
+    // jump to the edge doesn't reveal the strip.
+    let y = main.midY
+    var x = main.minX + 120
+    move(CGPoint(x: x, y: y))
+    while x > main.minX {
+      x = max(main.minX, x - 12)
+      move(CGPoint(x: x, y: y), dx: -12)
+      Thread.sleep(forTimeInterval: 0.016)
+    }
+    func stripShown() -> Bool { StripTiles.list().contains { $0.frame.hasPrefix("[") && !$0.frame.hasPrefix("[-") } }
+    var revealed = false
+    for _ in 0..<45 {   // ~0.7 s of pushing at the edge
+      move(CGPoint(x: main.minX, y: y), dx: -3)
+      Thread.sleep(forTimeInterval: 0.016)
+      if stripShown() { revealed = true; break }
+    }
+    guard revealed else {
+      move(back)
+      fail("the strip didn't slide in: synthetic pointer movement doesn't reveal it (no click sent)")
+    }
+    Thread.sleep(forTimeInterval: 0.35)   // let the slide finish
     let shown = StripTiles.list()   // positions once the strip has slid in
     guard shown.indices.contains(n - 1) else { fail("tile \(n) is gone") }
     let f = shown[n - 1].frame   // "[x,y w×h]"
