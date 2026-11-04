@@ -95,7 +95,13 @@ public final class StageStore {
       let (existing, reason) = plan.assignments[i]!
       var record = existing.flatMap { records[$0] } ?? StageRecord(windowIDs: [], createdAt: t)
       record.windowIDs = stage.windowIDs
-      record.fingerprint = inputs[i].fingerprint
+      let fresh = inputs[i].fingerprint
+      if reason == .woken, record.recipe == nil, !fresh.apps.isSuperset(of: record.fingerprint.apps) {
+        record.recipe = record.fingerprint   // keep the full recipe until all its apps are back
+      } else if let recipe = record.recipe, fresh.apps.isSuperset(of: recipe.apps) {
+        record.recipe = nil                  // regrouped by hand: the stage is whole again
+      }
+      record.fingerprint = fresh
       record.state = .active
       record.mergedInto = nil
       record.lastSeen = t
@@ -146,7 +152,7 @@ public final class StageStore {
   /// takes the record (and its name) back.
   public func expectWake(_ id: UUID) {
     guard let r = records[id] else { return }
-    wakes[id] = (r.fingerprint.apps, now().addingTimeInterval(Self.wakeWindow))
+    wakes[id] = (r.wakeRecipe.apps, now().addingTimeInterval(Self.wakeWindow))
   }
 
   private func claimWakes(_ plan: inout StageMatcher.Plan, inputs: [StageMatcher.Input], at t: Date) {

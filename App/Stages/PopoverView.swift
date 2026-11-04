@@ -360,7 +360,7 @@ struct SleepingRow: View {
           Text(record.name ?? "Stage").font(Theme.grotesk(14, .semibold)).foregroundStyle(.secondary).lineLimit(1)
           Spacer(minLength: 4)
           HStack(spacing: -3) {
-            ForEach(record.fingerprint.apps.sorted(), id: \.self) { id in
+            ForEach(record.wakeRecipe.apps.sorted(), id: \.self) { id in
               if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) {
                 Image(nsImage: NSWorkspace.shared.icon(forFile: url.path)).resizable().frame(width: 16, height: 16).opacity(0.7)
               }
@@ -368,9 +368,9 @@ struct SleepingRow: View {
           }
           Button("Wake") { model.wake(record.id) }.controlSize(.small)
         }
-        let docs = record.fingerprint.documents.count
-        Text(docs == 0 ? "\(record.fingerprint.apps.count) app(s), no documents recorded"
-                       : "\(record.fingerprint.apps.count) app(s), \(docs) document\(docs == 1 ? "" : "s")")
+        let docs = record.wakeRecipe.documents.count, apps = record.wakeRecipe.apps.count
+        Text(docs == 0 ? "\(apps) app\(apps == 1 ? "" : "s"), no documents recorded"
+                       : "\(apps) app\(apps == 1 ? "" : "s"), \(docs) document\(docs == 1 ? "" : "s")")
           .font(.system(size: 11)).foregroundStyle(.tertiary)
         if let last = record.lastActive {
           Text("last used \(last.formatted(.relative(presentation: .named)))").font(.system(size: 11)).foregroundStyle(.tertiary)

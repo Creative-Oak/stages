@@ -98,6 +98,13 @@ public struct StageRecord: Codable, Hashable, Identifiable, Sendable {
   /// True once the record's windows were seen together in the centre or strip, where grouping is
   /// visible. Only such records may regroup pooled overflow windows.
   public var membershipSeen: Bool
+  /// After a wake, the stage comes back as one app per stage, so the fingerprint shrinks to the
+  /// stage that took the name. The full recipe from before is kept here until the stage holds
+  /// all its apps again (regrouped by hand); waking uses it.
+  public var recipe: Fingerprint?
+
+  /// What waking relaunches.
+  public var wakeRecipe: Fingerprint { recipe ?? fingerprint }
   public var lastActive: Date?
   /// Last time the record matched a stage on screen.
   public var lastSeen: Date
@@ -129,6 +136,7 @@ public struct StageRecord: Codable, Hashable, Identifiable, Sendable {
     mergedInto = try c.decodeIfPresent(UUID.self, forKey: .mergedInto)
     // Records from before this field may hold memberships the old reader got wrong.
     membershipSeen = try c.decodeIfPresent(Bool.self, forKey: .membershipSeen) ?? false
+    recipe = try c.decodeIfPresent(Fingerprint.self, forKey: .recipe)
     lastActive = try c.decodeIfPresent(Date.self, forKey: .lastActive)
     createdAt = try c.decode(Date.self, forKey: .createdAt)
     lastSeen = try c.decodeIfPresent(Date.self, forKey: .lastSeen) ?? lastActive ?? createdAt

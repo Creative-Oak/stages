@@ -78,7 +78,8 @@ Machine: MacBook, single 1470×956 display, macOS 27.2 (26B123), Xcode 27.2 (fro
 | Behaviour | Status |
 |---|---|
 | A named record is sleeping when it isn't on screen and none of its window IDs exist anywhere in the capture (`StageSnapshot.allWindowIDs`); a stage on another Space keeps existing windows, so it isn't. | unit-tested 2026-11-04; Spaces behaviour **assumed** |
-| Waking: launch each recipe app (`NSWorkspace.openApplication`), opening each document with a recipe app that can open it (else its default app). The first new stage made only of the record's apps within 30 s takes the record back (`MatchReason.woken`). | unit-tested 2026-11-04; **to verify live** |
+| Waking: launch each recipe app (`NSWorkspace.openApplication`), opening each document with a recipe app that can open it (else its default app). The first new stage made only of the record's apps within 30 s takes the record back (`MatchReason.woken`). | verified 2026-11-04 (Magnus: two apps woke as separate stages; the first took the name, `woken: C3DD7E5B`). Documents only come back for apps that expose `AXDocument` (document apps); Calendar and similar have none |
+| After a wake the record's fingerprint shrank to the one app whose stage took the name, losing the other apps from its recipe. Now the pre-wake recipe is kept (`StageRecord.recipe`) until the stage holds all its apps again. | found and fixed 2026-11-04 |
 
 ## Activity log (M5)
 

@@ -511,3 +511,26 @@ private func snapshot(_ stages: [Stage], live: Set<UInt32>) -> StageSnapshot {
     #expect(other[0].id != s[0].id)
   }
 }
+
+@MainActor @Suite struct WakeRecipeTests {
+  @Test func wakingKeepsTheFullRecipeUntilRegrouped() {
+    let store = StageStore(directory: nil)
+    let s = store.reconcile(snapshot([stage([2, 3], apps: ["Calendar", "Reminders"])], live: [2, 3]))
+    store.rename(s[0].id, to: "Planning")
+    _ = store.reconcile(snapshot([], live: []))
+    store.expectWake(s[0].id)
+    // Woken as two stages; Calendar's takes the name.
+    let woke = store.reconcile(snapshot([stage([10], .centre, apps: ["Calendar"]), stage([11], apps: ["Reminders"])],
+                                        live: [10, 11]))
+    let id = s[0].id
+    #expect(woke[0].id == id)
+    #expect(store.records[id]?.wakeRecipe.apps == ["com.example.calendar", "com.example.reminders"])
+    // Still apart: the recipe stays whole.
+    _ = store.reconcile(snapshot([stage([10], .centre, apps: ["Calendar"]), stage([11], apps: ["Reminders"])], live: [10, 11]))
+    #expect(store.records[id]?.recipe != nil)
+    // Regrouped by hand (Reminders' stage merged into Planning): back to normal.
+    _ = store.reconcile(snapshot([stage([10, 11], .centre, apps: ["Calendar", "Reminders"])], live: [10, 11]))
+    #expect(store.records[id]?.recipe == nil)
+    #expect(store.records[id]?.wakeRecipe.apps.count == 2)
+  }
+}

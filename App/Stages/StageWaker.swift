@@ -17,7 +17,8 @@ enum StageWaker {
     let ws = NSWorkspace.shared
     // Recipe apps that exist on this Mac.
     var appURLs: [String: URL] = [:]
-    for id in record.fingerprint.apps.sorted() {
+    let recipe = record.wakeRecipe
+    for id in recipe.apps.sorted() {
       if id.hasPrefix("name:") {
         result.problems.append("\(id.dropFirst(5)) has no bundle ID, so it can't be relaunched")
       } else if let url = ws.urlForApplication(withBundleIdentifier: id) {
@@ -29,7 +30,7 @@ enum StageWaker {
 
     // Each document goes to a recipe app that can open it, else to its default app.
     var docsByApp: [URL: [URL]] = [:]
-    for doc in record.fingerprint.documents.sorted() {
+    for doc in recipe.documents.sorted() {
       guard let url = URL(string: doc) ?? (doc.hasPrefix("/") ? URL(fileURLWithPath: doc) : nil) else { continue }
       if url.isFileURL, !FileManager.default.fileExists(atPath: url.path) {
         result.problems.append("\(url.lastPathComponent) no longer exists")
