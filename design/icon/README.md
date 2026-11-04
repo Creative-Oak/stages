@@ -1,14 +1,11 @@
-# Stages app icon: layers for Icon Composer
+# Stages app icon
 
-Flat artwork on a 1024 × 1024 canvas, no shadows, gradients or squircle: Icon Composer adds the
-shape, glass, lighting and the light / dark / tinted variants.
+The shipping icon is the Icon Composer file **`App/Stages/AppIcon.icon`** (Magnus's design: the
+strip and the stage in glass on orange). Edit it in Icon Composer and copy it back there; the
+build compiles it into the app (`Assets.car`, plus `AppIcon.icns` for older surfaces).
 
-- `stage.svg`: the centre stage, a window with its title bar cut out (front layer).
-- `strip.svg`: the strip, three cards (back layer; lower opacity or an ink tint works well).
-- `preview.svg`: both on a background, to show the intent. Not for import.
-
-Suggested background: Lodestone ultramarine `#2C3F9E` → teal `#2F7F7A`. Inks for tinting the
-cards: chrome `#E3B72B`, oxide `#D1612F`, grass `#5F9A4A`.
-
-Export the finished `.icon` from Icon Composer into `App/Stages/` (it replaces the generated
-`Assets.xcassets/AppIcon`; see `tools/make-app-icon.swift` for the old one).
+This folder holds an exploration that didn't ship: "offstage beams", three stage lights outside
+the canvas on a circle (radius 1024) around the stage point at ¾ of the width, π/8 apart, each
+beam spread θ/3 so all are equally wide (270 px) where they overlap at the stage, fading into a
+glow. `dark/` and `light/` have the layers (SVG and PNG with the blur baked in);
+`preview-*.png` and `previews.png` show them.

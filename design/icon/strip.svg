@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- The strip: three cards to the left of the stage. Flat white; tint each in Icon Composer if wanted. -->
-  <rect x="170" y="252"  width="148" height="128" rx="36" fill="#FFFFFF"/>
-  <rect x="170" y="448"  width="148" height="128" rx="36" fill="#FFFFFF"/>
-  <rect x="170" y="644"  width="148" height="128" rx="36" fill="#FFFFFF"/>
-</svg>
