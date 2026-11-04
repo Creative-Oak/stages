@@ -88,6 +88,7 @@ Machine: MacBook, single 1470×956 display, macOS 27.2 (26B123), Xcode 27.2 (fro
 |---|---|
 | `activity.jsonl` gets an entry on each committed change of the centre stage or of its windows/titles/documents (repeats skipped), and again when document paths resolve. | verified 2026-11-04 (first entry on launch) |
 | Switch latency measured: Stages' part (key release → AX raise + frontmost) 12–63 ms, typically ~27 ms; stage confirmed in the centre ~970 ms after release (Stage Manager's animation plus two reads). | measured 2026-11-04 (Magnus's log) |
+| With frontmost-first activation: macOS reports the target app frontmost 4–39 ms after ⌘ is released (typically ~15 ms), and rapid ⌘⇥ every ~0.4 s works now that the recently-used order is Stages' own, updated at switch time. Magnus: "much better". | measured 2026-11-04 (19:41–19:42) |
 
 ## Performance
 
