@@ -4,7 +4,8 @@
 //   stagesctl watch                                      print each committed snapshot + poll cost
 //   stagesctl record <name> --note "…" [--frames N] [--interval ms] [--delay s] [--out dir] [--keep-titles]
 //   stagesctl tiles                                      list WindowManager's strip tiles (AX)
-//   stagesctl tile <n> press|add                         AXPress / AXAddToStage on tile n (spike)
+//   stagesctl tile <n> press|add|shift-click             AXPress / AXAddToStage / a synthetic
+//                                                        Shift-click on tile n (M6 spike)
 //   stagesctl gestures                                   spike: print the gesture events a global
 //                                                        event tap receives (needs Accessibility)
 //
@@ -177,6 +178,32 @@ case "tiles", "tile":
   }
   guard let n = Int(args[0]), tiles.indices.contains(n - 1), args.count > 1 else {
     fail("usage: stagesctl tile <n> press|add   (n from `stagesctl tiles`)")
+  }
+  if args[1] == "shift-click" {
+    // Reveal the strip (pointer to the left edge), Shift-click the tile, put the pointer back.
+    let back = CGEvent(source: nil)?.location ?? .zero
+    let main = CGDisplayBounds(CGMainDisplayID())
+    func move(_ p: CGPoint) { CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: p, mouseButton: .left)?.post(tap: .cghidEventTap) }
+    move(CGPoint(x: main.minX + 1, y: main.midY))
+    Thread.sleep(forTimeInterval: 0.6)
+    let shown = StripTiles.list()   // positions once the strip has slid in
+    guard shown.indices.contains(n - 1) else { fail("tile \(n) is gone") }
+    let f = shown[n - 1].frame   // "[x,y w×h]"
+    let nums = f.split { !"-0123456789.".contains($0) }.compactMap { Double($0) }
+    guard nums.count == 4 else { fail("couldn't read the tile's frame \(f)") }
+    let p = CGPoint(x: nums[0] + nums[2] / 2, y: nums[1] + nums[3] / 2)
+    move(p)
+    Thread.sleep(forTimeInterval: 0.15)
+    for type in [CGEventType.leftMouseDown, .leftMouseUp] {
+      let e = CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: p, mouseButton: .left)
+      e?.flags = .maskShift
+      e?.post(tap: .cghidEventTap)
+      Thread.sleep(forTimeInterval: 0.05)
+    }
+    Thread.sleep(forTimeInterval: 0.3)
+    move(back)
+    print("Shift-clicked \"\(shown[n - 1].title)\" at \(Int(p.x)),\(Int(p.y)) \(f)")
+    break
   }
   let action = args[1] == "add" ? "AXAddToStage" : args[1] == "press" ? "AXPress" : args[1]
   let t = tiles[n - 1]
