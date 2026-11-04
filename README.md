@@ -26,6 +26,12 @@ make test      # package tests (xcodebuild, at the repo root)
 make run       # generate the Xcode project, build Stages.app, (re)launch it
 ```
 
+```bash
+make install   # build, copy to ~/Applications/Stages.app and run it from there
+```
+
+Then turn on Settings… → General → Open at login.
+
 The app needs its own Screen Recording grant (separate from your terminal's).
 
 ### Raycast (URL scheme)

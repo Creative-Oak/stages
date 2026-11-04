@@ -6,7 +6,8 @@ APP := $(DERIVED)/Build/Products/Debug/Stages.app
 # Local self-signed identity (README → Signing). Keeps TCC grants stable across rebuilds.
 IDENTITY := Stages Local Signing
 
-.PHONY: project app run test clean
+.PHONY: project app run install test clean
+INSTALLED := $(HOME)/Applications/Stages.app
 
 project:
 	cd App && xcodegen generate --quiet
@@ -21,6 +22,15 @@ app: project
 run: app
 	-pkill -x Stages; while pgrep -x Stages >/dev/null; do sleep 0.1; done; sleep 0.5
 	open $(APP)
+
+# Copy the app to ~/Applications (no admin needed) and run it from there. Grants follow the
+# signing certificate, not the path, so they carry over. "Open at login" points here.
+install: app
+	-pkill -x Stages; while pgrep -x Stages >/dev/null; do sleep 0.1; done; sleep 0.5
+	mkdir -p $(HOME)/Applications
+	rm -rf $(INSTALLED)
+	ditto $(APP) $(INSTALLED)
+	open $(INSTALLED)
 
 test:
 	xcodebuild test -scheme Stages-Package -destination 'platform=macOS,arch=arm64' -quiet

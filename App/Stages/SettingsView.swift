@@ -1,4 +1,5 @@
 import AppKit
+import ServiceManagement
 import SwiftUI
 
 struct SettingsView: View {
@@ -7,10 +8,35 @@ struct SettingsView: View {
   @AppStorage(ShortcutSettings.swipesKey) private var swipes = false
   @AppStorage(ShortcutSettings.swipeFingersKey) private var fingers = 3
   @State private var trusted = Permissions.accessibility
+  @State private var loginStatus = SMAppService.mainApp.status
+  @State private var loginError: String?
   private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
   var body: some View {
     Form {
+      Section {
+        Toggle("Open at login", isOn: Binding(
+          get: { loginStatus == .enabled },
+          set: { on in
+            do {
+              if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+              loginError = nil
+            } catch {
+              loginError = error.localizedDescription
+            }
+            loginStatus = SMAppService.mainApp.status
+          }))
+        if loginStatus == .requiresApproval {
+          Text("Allow Stages under System Settings → General → Login Items.").font(.callout).foregroundStyle(.secondary)
+        }
+        if let loginError { Text(loginError).font(.callout).foregroundStyle(.secondary) }
+        if !Bundle.main.bundlePath.hasPrefix(NSHomeDirectory() + "/Applications") && !Bundle.main.bundlePath.hasPrefix("/Applications") {
+          Text("Stages is running from \(Bundle.main.bundlePath). Install it first (`make install`) so the login item doesn't point at a build folder.")
+            .font(.callout).foregroundStyle(.secondary)
+        }
+      } header: {
+        Theme.label("General")
+      }
       Section {
         Picker("Stage switcher", selection: $modifier) {
           ForEach(ShortcutSettings.Modifier.allCases, id: \.rawValue) { Text($0.label).tag($0.rawValue) }
