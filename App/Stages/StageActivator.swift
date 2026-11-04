@@ -1,11 +1,16 @@
 import AppKit
 import ApplicationServices
+import os
 import StageReader
 
-/// Brings a stage to the centre the way a Dock click does: make its app frontmost and raise one
-/// of its windows. Stage Manager then moves the whole stage. Needs Accessibility.
-enum StageActivator {
-  enum Outcome: Equatable {
+/// Brings a stage to the centre the way a Dock click does: raise one of its windows and make
+/// its app frontmost. Stage Manager then moves the whole stage. Needs Accessibility.
+///
+/// Everything here runs off the main thread: AX calls are round-trips to the target app and
+/// can block on a busy one. Window lookups are done ahead of time (`prewarm`, while the switcher
+/// is open) so a switch is just "raise" + "frontmost".
+nonisolated enum StageActivator {
+  enum Outcome: Equatable, Sendable {
     case raised
     /// No AX window matched by title: only the app was activated (Stage Manager picks which of
     /// its stages comes forward).
@@ -14,22 +19,59 @@ enum StageActivator {
     case failed(String)
   }
 
-  /// Raise `window`, the stage's most recent one.
-  static func raise(_ window: StageWindow) -> Outcome {
+  /// AX window per CG window ID (+ title, since titles decide the match).
+  private static let cache = OSAllocatedUnfairLock(initialState: [String: AXUIElementBox]())
+
+  final class AXUIElementBox: @unchecked Sendable {
+    let element: AXUIElement
+    init(_ e: AXUIElement) { element = e }
+  }
+
+  private static func key(_ w: StageWindow) -> String { "\(w.id)|\(w.title ?? "")" }
+
+  /// Look up AX windows for these in the background, so a later `raise` needn't.
+  static func prewarm(_ windows: [StageWindow]) {
+    guard AXIsProcessTrusted() else { return }
+    let missing = windows.filter { w in cache.withLock { $0[key(w)] == nil } }
+    guard !missing.isEmpty else { return }
+    Task.detached(priority: .userInitiated) {
+      for w in missing {
+        let app = AXUIElementCreateApplication(w.pid)
+        AXUIElementSetMessagingTimeout(app, 0.3)
+        if let el = axWindow(in: app, matching: w) {
+          let box = AXUIElementBox(el)
+          cache.withLock { $0[key(w)] = box }
+        }
+      }
+    }
+  }
+
+  /// Raise `window` (the stage's most recent one) and activate its app.
+  static func raise(_ window: StageWindow) async -> Outcome {
+    await Task.detached(priority: .userInitiated) { raiseNow(window) }.value
+  }
+
+  private static func raiseNow(_ window: StageWindow) -> Outcome {
     guard AXIsProcessTrusted() else { return .notTrusted }
     let app = AXUIElementCreateApplication(window.pid)
     AXUIElementSetMessagingTimeout(app, 0.5)
-    let target = axWindow(in: app, matching: window)
-    if let target {
-      AXUIElementSetAttributeValue(target, kAXMainAttribute as CFString, kCFBooleanTrue)
-      AXUIElementPerformAction(target, kAXRaiseAction as CFString)
+    var target = cache.withLock { $0[key(window)] }?.element
+    if let t = target, AXUIElementPerformAction(t, kAXRaiseAction as CFString) != .success {
+      cache.withLock { $0[key(window)] = nil }   // stale (window closed or re-created)
+      target = nil
     }
+    if target == nil, let found = axWindow(in: app, matching: window) {
+      AXUIElementPerformAction(found, kAXRaiseAction as CFString)
+      let box = AXUIElementBox(found)
+      cache.withLock { $0[key(window)] = box }
+      target = found
+    }
+    if let target { AXUIElementSetAttributeValue(target, kAXMainAttribute as CFString, kCFBooleanTrue) }
     let frontmost = AXUIElementSetAttributeValue(app, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
     if frontmost != .success {
       // AX refused (rare); ask the app through AppKit instead.
-      guard NSRunningApplication(processIdentifier: window.pid)?.activate() == true else {
-        return .failed("couldn't activate \(window.owner) (AX error \(frontmost.rawValue))")
-      }
+      let ok = DispatchQueue.main.sync { NSRunningApplication(processIdentifier: window.pid)?.activate() ?? false }
+      guard ok else { return .failed("couldn't activate \(window.owner) (AX error \(frontmost.rawValue))") }
     }
     return target == nil ? .appOnly : .raised
   }

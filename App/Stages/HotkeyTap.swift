@@ -18,6 +18,11 @@ final class HotkeyTap {
   private var retry: Timer?
   private var session: SwitcherSession?
   private var swipes = SwipeDetector()
+  /// The panel appears only if the modifier is still held after this, like ⌘⇥: a quick tap
+  /// switches without flashing anything.
+  private static let panelDelay: DispatchTimeInterval = .milliseconds(100)
+  private var panelShown = false
+  private var panelGeneration = 0
   /// CG event type for trackpad gesture events (NSEvent.EventType.gesture); not in CGEventType.
   private static let gestureType: UInt32 = 29
   private static let log = Logger(subsystem: "dk.creativeoak.stages", category: "hotkeys")
@@ -123,7 +128,8 @@ final class HotkeyTap {
         s.type(chars.lowercased())
       }
       session = s
-      panel.show(s)
+      // Any further key shows the panel at once (and updates it).
+      later { self.panelShown = true; self.panel.show(s) }
       return true
     }
 
@@ -136,15 +142,24 @@ final class HotkeyTap {
       guard candidates.count > 1 else { return false }
       let s = SwitcherSession(candidates: candidates)
       session = s
-      panel.show(s)
-      model.pokePoller()
+      panelShown = false
+      panelGeneration += 1
+      let generation = panelGeneration
+      later { self.model.prewarmSwitching(); self.model.pokePoller() }
+      DispatchQueue.main.asyncAfter(deadline: .now() + Self.panelDelay) { [weak self] in
+        MainActor.assumeIsolated {
+          guard let self, let current = self.session, self.panelGeneration == generation, !self.panelShown else { return }
+          self.panelShown = true
+          self.panel.show(current)
+        }
+      }
       return true
     }
 
     if ShortcutSettings.arrowsEnabled, held == [.maskControl, .maskAlternate] {
       switch key {
-      case Key.left, Key.up: model.step(-1); return true
-      case Key.right, Key.down: model.step(1); return true
+      case Key.left, Key.up: later { self.model.step(-1) }; return true
+      case Key.right, Key.down: later { self.model.step(1) }; return true
       default: break
       }
     }
@@ -158,18 +173,31 @@ final class HotkeyTap {
     let n = touches.count
     let x = n == 0 ? 0 : touches.map { Double($0.normalizedPosition.x) }.reduce(0, +) / Double(n)
     let y = n == 0 ? 0 : touches.map { Double($0.normalizedPosition.y) }.reduce(0, +) / Double(n)
-    if let step = swipes.feed(fingers: n, x: x, y: y) { model.step(step) }
+    if let step = swipes.feed(fingers: n, x: x, y: y) { later { self.model.step(step) } }
   }
 
   private func commit() {
     let target = session?.selected
     session = nil
-    panel.hide()
-    if let target { model.switchTo(target.id) }
+    panelGeneration += 1
+    let wasShown = panelShown
+    panelShown = false
+    later {
+      if let target { self.model.switchTo(target.id) }
+      if wasShown { self.panel.hide() }
+    }
+  }
+
+  /// Runs after the tap callback has returned: the callback must stay fast, or every keystroke
+  /// on the system waits (and macOS disables slow taps).
+  private func later(_ work: @escaping @MainActor () -> Void) {
+    DispatchQueue.main.async { MainActor.assumeIsolated { work() } }
   }
 
   private func cancel() {
     session = nil
-    panel.hide()
+    panelGeneration += 1
+    panelShown = false
+    later { self.panel.hide() }
   }
 }

@@ -16,6 +16,11 @@ final class SwitcherPanel {
 
   init(model: AppModel) { self.model = model }
 
+  /// Build the panel and its SwiftUI view now, so the first ⌥⇥ doesn't pay for it.
+  func prewarm() {
+    _ = panel.contentView?.fittingSize
+  }
+
   func show(_ session: SwitcherSession) {
     state.session = session
     if !panel.isVisible {

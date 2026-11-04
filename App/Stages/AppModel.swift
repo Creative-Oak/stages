@@ -91,6 +91,7 @@ final class AppModel {
       Self.log.notice("committed: \(snapshot.stages.count) read, \(self.stages.count) stages, \(d.overlayCount) overlays, confidence \(d.confidence.rawValue, privacy: .public)")
     }
     resolveDocuments()
+    prewarmSwitching()   // only looks up windows not cached yet
   }
 
   /// Look up AX document paths for windows (or titles) not seen before.
@@ -266,11 +267,13 @@ final class AppModel {
     guard committedCentre != id else { provisionalCurrent = nil; return }
     provisionalCurrent = id
     poller.poke()
+    let started = ContinuousClock.now
     Task { [weak self] in
       guard let self else { return }
       for attempt in 1...2 {
         guard self.switchGeneration == generation else { return }
-        let outcome = StageActivator.raise(window)
+        let outcome = await StageActivator.raise(window)
+        Self.log.notice("switch: raise took \(Self.ms(ContinuousClock.now - started)) ms (attempt \(attempt))")
         switch outcome {
         case .notTrusted:
           self.switchProblem = "Switching needs Accessibility permission."
@@ -281,7 +284,7 @@ final class AppModel {
           if await self.waitForCentre(id, timeout: .milliseconds(1500)) {
             guard self.switchGeneration == generation else { return }
             self.switchProblem = nil
-            Self.log.notice("switch: reached centre on attempt \(attempt) (\(outcome == .raised ? "window raised" : "app only", privacy: .public))")
+            Self.log.notice("switch: reached centre on attempt \(attempt) after \(Self.ms(ContinuousClock.now - started)) ms (\(outcome == .raised ? "window raised" : "app only", privacy: .public))")
             return
           }
           Self.log.notice("switch: not in centre after attempt \(attempt)")
@@ -291,6 +294,16 @@ final class AppModel {
       self.switchProblem = "Couldn't bring \(stage.title) to the centre."
       NSSound.beep()
     }
+  }
+
+  /// Look up AX windows for every stage's most recent window, so a switch needn't (called when
+  /// the switcher opens).
+  func prewarmSwitching() {
+    StageActivator.prewarm(stages.compactMap { $0.stage.windows.min(by: { $0.z < $1.z }) })
+  }
+
+  static func ms(_ d: Duration) -> Int {
+    Int(d.components.seconds * 1000 + d.components.attoseconds / 1_000_000_000_000_000)
   }
 
   private func waitForCentre(_ id: UUID, timeout: Duration) async -> Bool {
@@ -334,12 +347,12 @@ extension IdentifiedStage {
     }
   }
 
-  /// One icon per app, front-to-back.
+  /// One icon per app, front-to-back (cached per process: the switcher redraws on every key).
   var appIcons: [NSImage] {
     var seen = Set<Int32>()
     return stage.windows.compactMap { w in
       guard seen.insert(w.pid).inserted else { return nil }
-      return NSRunningApplication(processIdentifier: w.pid)?.icon
+      return IconCache.icon(for: w.pid)
     }
   }
 }
@@ -393,5 +406,16 @@ enum ShortcutSettings {
   /// ⌃⌥←/→ (and ↑/↓) for previous/next stage.
   static var arrowsEnabled: Bool {
     UserDefaults.standard.object(forKey: arrowsKey) as? Bool ?? true
+  }
+}
+
+enum IconCache {
+  private static var icons: [Int32: NSImage] = [:]
+
+  static func icon(for pid: Int32) -> NSImage? {
+    if let icon = icons[pid] { return icon }
+    let icon = NSRunningApplication(processIdentifier: pid)?.icon
+    icons[pid] = icon
+    return icon
   }
 }
