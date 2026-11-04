@@ -54,8 +54,13 @@ final class AppModel {
   /// macOS reports it frontmost: the moment the switch is felt).
   @ObservationIgnored private var awaitingActivation: (pid: Int32, since: ContinuousClock.Instant)?
 
+  /// Apps by last activation, most recent first (orders the in-stage switcher; CG z-order under
+  /// Stage Manager doesn't reliably put the active app's window in front).
+  @ObservationIgnored private var appRecency: [Int32] = []
+
   private func activated(_ pid: Int32?) {
     activatedAt = .now
+    if let pid { appRecency.removeAll { $0 == pid }; appRecency.insert(pid, at: 0); if appRecency.count > 64 { appRecency.removeLast() } }
     if let a = awaitingActivation, a.pid == pid {
       Self.log.notice("switch: frontmost after \(Self.ms(ContinuousClock.now - a.since)) ms")
       awaitingActivation = nil
@@ -330,7 +335,11 @@ final class AppModel {
     guard fresh.isAvailable, let centre = fresh.stages.first(where: { $0.position == .centre }) else { return ([], [:]) }
     let now = Date()
     var windows: [UUID: StageWindow] = [:]
-    let candidates = centre.windows.sorted { $0.z < $1.z }.enumerated().map { i, w -> Candidate in
+    // Frontmost app first, then apps by last activation; within an app, front to back.
+    let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
+    func rank(_ pid: Int32) -> Int { pid == front ? -1 : (appRecency.firstIndex(of: pid) ?? Int.max) }
+    let ordered = centre.windows.sorted { (rank($0.pid), $0.z) < (rank($1.pid), $1.z) }
+    let candidates = ordered.enumerated().map { i, w -> Candidate in
       let id = Self.uuid(forWindow: w.id)
       windows[id] = w
       return Candidate(id: id, name: w.owner, apps: [w.owner], titles: [w.title].compactMap { $0 },
