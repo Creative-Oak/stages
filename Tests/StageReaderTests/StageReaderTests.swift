@@ -315,3 +315,33 @@ import Testing
     #expect(s.stages(.overflow).count == 5)   // every strip-layer window is in no tile
   }
 }
+
+@Suite struct AppStackTests {
+  @Test func oneAtATimeSplitsASingleAppTileIntoItsStages() {
+    var (scene, safari, mail, _) = StripTileTests().scene()
+    var c = scene.capture
+    c.appWindowGroupingBehavior = 0   // One at a Time
+    let s = StageReader.read(c)
+    #expect(s.stages(.strip).map(\.windowIDs) == safari.map { Set([$0]) } + [[mail]])
+    #expect(s.stages(.strip).map(\.order) == [0, 1, 2, 3])
+    _ = scene
+  }
+
+  @Test func allAtOnceKeepsTheTileAsOneStage() {
+    let (scene, safari, mail, _) = StripTileTests().scene()
+    var c = scene.capture
+    c.appWindowGroupingBehavior = 1   // All at Once
+    let s = StageReader.read(c)
+    #expect(s.stages(.strip).map(\.windowIDs) == [Set(safari), [mail]])
+  }
+
+  @Test func mixedAppTilesStayGrouped() {
+    var (scene, _, mail, _) = StripTileTests().scene()
+    let notes = scene.stageWindow("Notes", "Shopping", Rect(x: -253, y: 480, w: 180, h: 150), strip: true)
+    scene.stripTiles![1] = StripTile(windowIDs: [mail, notes], frame: Rect(x: -269, y: 475, w: 213, h: 158), title: "Inbox")
+    var c = scene.capture
+    c.appWindowGroupingBehavior = 0
+    let s = StageReader.read(c)
+    #expect(s.stages(.strip).last?.windowIDs == [mail, notes])
+  }
+}

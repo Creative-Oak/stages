@@ -328,17 +328,29 @@ public enum StageReader {
       // 4a. With tiles: one strip stage per tile, top to bottom, with exactly its windows; every
       //     other strip-layer window is overflow (overflow stages have no tiles).
       if let tilesHere {
-        for (i, t) in tilesHere.sorted(by: { ($0.frame.minY, $0.frame.minX) < ($1.frame.minY, $1.frame.minX) }).enumerated() {
+        // Under "One at a Time", Stage Manager stacks an app's separate stages in one tile:
+        // pressing it brings only the front window to the centre, and the rest stay stacked
+        // (verified by raising a back window of a three-window Safari tile). So a single-app tile
+        // with several windows is one stage per window. Under "All at Once" it's one stage.
+        let oneAtATime = capture.appWindowGroupingBehavior == 0
+        var order = 0
+        for t in tilesHere.sorted(by: { ($0.frame.minY, $0.frame.minX) < ($1.frame.minY, $1.frame.minX) }) {
           let ws = t.windowIDs.compactMap { candidateByID[$0] }.sorted { $0.z < $1.z }
           guard !ws.isEmpty else {
             diag.concerns.append("strip tile “\(t.title ?? "?")” lists no window in the capture")
             continue
           }
           let badges = icons.filter { t.frame.contains(x: $0.bounds.midX, y: $0.bounds.midY) }.count
-          let stage = Stage(position: .strip, order: i, displayID: d.id, windows: ws.map(stageWindow),
-                            frame: t.frame, appIconCount: badges, authoritative: true)
-          diag.classification.append("strip \(i) (tile) \(t.frame) apps=\(stage.owners)")
-          stages.append(stage)
+          let appStack = oneAtATime && ws.count > 1 && Set(ws.map(\.pid)).count == 1
+          let groups = appStack ? ws.map { [$0] } : [ws]
+          for g in groups {
+            let frame = appStack ? (overlayOf[g[0].id]?.bounds ?? g[0].bounds) : t.frame
+            let stage = Stage(position: .strip, order: order, displayID: d.id, windows: g.map(stageWindow),
+                              frame: frame, appIconCount: appStack ? 1 : badges, authoritative: true)
+            diag.classification.append("strip \(order) (tile\(appStack ? ", app stack" : "")) \(frame) apps=\(stage.owners)")
+            stages.append(stage)
+            order += 1
+          }
         }
         let pool = strip.filter { !tileIDs.contains($0.id) }.sorted { $0.z < $1.z }
         for (i, w) in pool.enumerated() {
