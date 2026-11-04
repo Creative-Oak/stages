@@ -45,12 +45,19 @@ final class AppModel {
   /// exactly one stage; the next committed snapshot confirms or corrects it.
   private func activated(_ pid: Int32?) {
     activatedAt = .now
-    guard let pid else { return }
-    let containing = stages.filter { $0.stage.windows.contains { $0.pid == pid } }
-    if containing.count == 1, containing[0].stage.position != .centre {
-      provisionalCurrent = containing[0].id
+    let containing = pid.map { pid in stages.filter { $0.stage.windows.contains { $0.pid == pid } } } ?? []
+    // Every activation replaces the guess (or clears it), so an older one can't linger.
+    provisionalCurrent = containing.count == 1 ? containing[0].id : nil
+    // If no snapshot confirms it (nothing on screen changed), fall back to the committed centre.
+    provisionalGeneration += 1
+    let generation = provisionalGeneration
+    Task { [weak self] in
+      try? await Task.sleep(for: .seconds(2))
+      guard let self, self.provisionalGeneration == generation else { return }
+      self.provisionalCurrent = nil
     }
   }
+  @ObservationIgnored private var provisionalGeneration = 0
 
   func stages(_ position: Stage.Position) -> [IdentifiedStage] {
     stages.filter { $0.stage.position == position }

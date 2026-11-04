@@ -9,6 +9,10 @@ import StageReader
 public final class StagePoller {
   public struct Pacing: Sendable {
     public var fast: Duration = .milliseconds(250)
+    /// Right after an app activation (a stage switch is likely animating), poll faster so the
+    /// two equal reads the gate needs come soon after the animation ends.
+    public var burst: Duration = .milliseconds(100)
+    public var burstFor: Duration = .seconds(2)
     public var idle: Duration = .seconds(1)
     public var deepIdle: Duration = .seconds(2)
     /// Quiet time before dropping to `idle`, then `deepIdle`.
@@ -18,7 +22,8 @@ public final class StagePoller {
   }
 
   public private(set) var latest: StageSnapshot?
-  /// For the last commit: time from the first changed read to the commit, and reads taken.
+  /// For the last commit: time from the first read that differed from the committed state to
+  /// the commit, and reads taken.
   public private(set) var lastSettle: (duration: Duration, reads: Int)?
   /// Called on the main actor with each committed (stable, changed) snapshot.
   public var onCommit: ((StageSnapshot) -> Void)?
@@ -31,9 +36,10 @@ public final class StagePoller {
   private var task: Task<Void, Never>?
   private var lastRawSignature = ""
   private var lastChange = ContinuousClock.now
-  /// First raw change since the last commit, and reads since then.
+  /// First read since the last commit whose snapshot differed from it, and reads since then.
   private var unsettledSince: ContinuousClock.Instant?
   private var readsSinceChange = 0
+  private var lastPoke: ContinuousClock.Instant?
   private var observer: NSObjectProtocol?
   private var wake: CheckedContinuation<Void, Never>?
 
@@ -68,6 +74,7 @@ public final class StagePoller {
   /// Read now and go back to fast polling.
   public func poke() {
     lastChange = .now
+    lastPoke = .now
     wake?.resume(); wake = nil
   }
 
@@ -76,22 +83,22 @@ public final class StagePoller {
   public func tick() -> Duration {
     let capture = source.capture()
     let rawSig = Self.rawSignature(capture)
-    if rawSig != lastRawSignature {
-      lastChange = .now; lastRawSignature = rawSig
-      if unsettledSince == nil { unsettledSince = .now; readsSinceChange = 0 }
-    }
-    readsSinceChange += 1
+    if rawSig != lastRawSignature { lastChange = .now; lastRawSignature = rawSig }
 
     let snapshot = StageReader.read(capture)
     onRead?(snapshot)
+    readsSinceChange += 1
     if let committed = gate.feed(snapshot) {
       lastSettle = unsettledSince.map { (ContinuousClock.now - $0, readsSinceChange) }
       unsettledSince = nil
       latest = committed
       onCommit?(committed)
+    } else if gate.isSettling, unsettledSince == nil {
+      unsettledSince = .now; readsSinceChange = 1
     }
 
     let quiet = ContinuousClock.now - lastChange
+    if let lastPoke, ContinuousClock.now - lastPoke < pacing.burstFor { return pacing.burst }
     if gate.isSettling || quiet < pacing.idleAfter { return pacing.fast }
     return quiet < pacing.deepIdleAfter ? pacing.idle : pacing.deepIdle
   }
