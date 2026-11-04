@@ -159,12 +159,12 @@ public struct StageSnapshot: Codable, Hashable, Sendable {
   /// A stage whose windows are all absent from this has closed; one whose windows are here but
   /// not in a stage is elsewhere (another Space). Not part of the signature.
   public var allWindowIDs: Set<UInt32> = []
-  /// "Show windows from an application: All at Once": switching to an app brings *all* its
-  /// windows into the centre, including ones that belong to its other stages (borrowed).
-  public var allAtOnce: Bool = true
+  /// "Show windows from an application: All at Once" (`AppWindowGroupingBehavior` 1; 0 is One at
+  /// a Time). Diagnostic only.
+  public var allAtOnce: Bool = false
 
   public init(capturedAt: Date, unavailable: Unavailable?, stages: [Stage], diagnostics: Diagnostics,
-              overlaySizes: [String] = [], allWindowIDs: Set<UInt32> = [], allAtOnce: Bool = true) {
+              overlaySizes: [String] = [], allWindowIDs: Set<UInt32> = [], allAtOnce: Bool = false) {
     self.capturedAt = capturedAt; self.unavailable = unavailable; self.stages = stages
     self.diagnostics = diagnostics; self.overlaySizes = overlaySizes; self.allWindowIDs = allWindowIDs
     self.allAtOnce = allAtOnce
@@ -388,7 +388,7 @@ public enum StageReader {
 
     return StageSnapshot(capturedAt: capture.capturedAt, unavailable: nil, stages: stages, diagnostics: diag,
                          overlaySizes: overlays.map { "\(Int($0.bounds.w.rounded()))x\(Int($0.bounds.h.rounded()))" }.sorted(), allWindowIDs: Set(capture.windows.map(\.id)),
-                         allAtOnce: capture.appWindowGroupingBehavior != 1)
+                         allAtOnce: capture.appWindowGroupingBehavior == 1)
   }
 }
 

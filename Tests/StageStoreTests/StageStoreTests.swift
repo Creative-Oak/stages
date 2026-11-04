@@ -537,7 +537,7 @@ private func snapshot(_ stages: [Stage], live: Set<UInt32>) -> StageSnapshot {
   }
 }
 
-@MainActor @Suite struct AllAtOnceBorrowingTests {
+@MainActor @Suite struct BorrowedWindowTests {
   private func centre(_ ids: [UInt32], apps: [String]) -> Stage {
     var s = stage(ids, .centre, apps: apps)
     // Frontmost window first (z 0).
@@ -576,11 +576,12 @@ private func snapshot(_ stages: [Stage], live: Set<UInt32>) -> StageSnapshot {
     #expect(store.records[s[1].id]?.state == .dormant)
   }
 
-  @Test func oneAtATimeDoesNotCarve() {
+  @Test func carvingDoesNotDependOnTheGroupingSetting() {
+    // Observed under One at a Time (AppWindowGroupingBehavior 0), so it applies to both.
     let store = StageStore(directory: nil)
     _ = store.reconcile(snapshot([stage([1], .centre, apps: ["Mail"]), stage([2], apps: ["Safari"]), stage([3], apps: ["Safari"])]))
     var snap = snapshot([centre([2, 3], apps: ["Safari"]), stage([1], apps: ["Mail"])])
     snap.allAtOnce = false
-    #expect(store.reconcile(snap).count == 2)
+    #expect(store.reconcile(snap).count == 3)
   }
 }

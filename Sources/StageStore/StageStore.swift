@@ -44,7 +44,7 @@ public final class StageStore {
   public func reconcile(_ snapshot: StageSnapshot) -> [IdentifiedStage] {
     guard snapshot.isAvailable else { return [] }
     var snapshot = snapshot
-    if snapshot.allAtOnce { snapshot.stages = carveBorrowed(snapshot.stages) }
+    snapshot.stages = carveBorrowed(snapshot.stages)
     if let why = implausibility(snapshot.stages) {
       lastRejection = why
       onEvent?("rejected snapshot: \(why)")
@@ -60,8 +60,9 @@ public final class StageStore {
   public private(set) var lastRejection: String?
   private var lastResult: [IdentifiedStage] = []
 
-  /// Under "All at Once", activating an app pulls the windows of its *other* stages into the
-  /// centre too. That's borrowing, not grouping: the centre stage is the one owning the
+  /// Activating an app can pull the windows of its *other* stages into the centre too (seen
+  /// with "One at a Time", Magnus's setting; likely with "All at Once" as well). That's
+  /// borrowing, not grouping: the centre stage is the one owning the
   /// frontmost window, and windows of other known stages made only of apps already in it go
   /// back to their own stage (listed with the strip, since that's where they return). A drag of
   /// a different app is still a merge. Cost: grouping two stages of the same app by hand isn't
