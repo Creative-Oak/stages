@@ -461,3 +461,53 @@ private func tempDir() -> URL {
     _ = try file.encoded()
   }
 }
+
+private func snapshot(_ stages: [Stage], live: Set<UInt32>) -> StageSnapshot {
+  StageSnapshot(capturedAt: Date(), unavailable: nil, stages: stages, diagnostics: Diagnostics(), allWindowIDs: live)
+}
+
+@MainActor @Suite struct SleepingTests {
+  @Test func namedStageWithClosedWindowsSleeps() {
+    let store = StageStore(directory: nil)
+    let s = store.reconcile(snapshot([stage([1], .centre, apps: ["Ghostty"]), stage([2, 3], apps: ["Preview", "Notes"])],
+                                     live: [1, 2, 3]))
+    store.rename(s[1].id, to: "Reading")
+    // Preview and Notes quit: their windows are gone from the capture entirely.
+    _ = store.reconcile(snapshot([stage([1], .centre, apps: ["Ghostty"])], live: [1]))
+    #expect(store.sleeping.map(\.name) == ["Reading"])
+  }
+
+  @Test func stageOnAnotherSpaceIsNotSleeping() {
+    let store = StageStore(directory: nil)
+    let s = store.reconcile(snapshot([stage([1], .centre), stage([2])], live: [1, 2]))
+    store.rename(s[1].id, to: "Elsewhere")
+    // Window 2 still exists (another Space), it's just not in a stage here.
+    _ = store.reconcile(snapshot([stage([1], .centre)], live: [1, 2]))
+    #expect(store.sleeping.isEmpty)
+  }
+
+  @Test func wakingGivesTheNameToTheFirstNewStageOfItsApps() {
+    let store = StageStore(directory: nil)
+    let s = store.reconcile(snapshot([stage([1], .centre, apps: ["Ghostty"]), stage([2, 3], apps: ["Preview", "Notes"])],
+                                     live: [1, 2, 3]))
+    store.rename(s[1].id, to: "Reading")
+    _ = store.reconcile(snapshot([stage([1], .centre, apps: ["Ghostty"])], live: [1]))
+    store.expectWake(s[1].id)
+    // Relaunched: Preview and Notes come back as two separate stages, with new window IDs.
+    let woke = store.reconcile(snapshot([stage([10], .centre, apps: ["Preview"]), stage([1], apps: ["Ghostty"]),
+                                         stage([11], apps: ["Notes"])], live: [1, 10, 11]))
+    #expect(woke[0].id == s[1].id && woke[0].record.name == "Reading" && woke[0].reason == .woken)
+    #expect(woke[2].record.name == nil)
+    #expect(store.sleeping.isEmpty)
+  }
+
+  @Test func unrelatedNewStagesDoNotClaimAWake() {
+    let store = StageStore(directory: nil)
+    let s = store.reconcile(snapshot([stage([2], apps: ["Preview"])], live: [2]))
+    store.rename(s[0].id, to: "Reading")
+    _ = store.reconcile(snapshot([], live: []))
+    store.expectWake(s[0].id)
+    let other = store.reconcile(snapshot([stage([9], apps: ["Mail"])], live: [9]))
+    #expect(other[0].id != s[0].id)
+  }
+}

@@ -73,6 +73,13 @@ Machine: MacBook, single 1470×956 display, macOS 27.2 (26B123), Xcode 27.2 (fro
 | `open stages://…` reaches the running app (LaunchServices, `CFBundleURLTypes`), and `application(_:open:)` handles it; Stages deactivates afterwards so the frontmost app keeps focus. | routing verified 2026-11-04 (`open -g 'stages://switch?slot=9'` → "No stage has slot 9"); focus behaviour from Raycast **to verify** |
 | `state.json` written on change: 11 stages, document paths present for windows whose AX document resolved. | verified 2026-11-04 |
 
+## Sleeping stages (M6)
+
+| Behaviour | Status |
+|---|---|
+| A named record is sleeping when it isn't on screen and none of its window IDs exist anywhere in the capture (`StageSnapshot.allWindowIDs`); a stage on another Space keeps existing windows, so it isn't. | unit-tested 2026-11-04; Spaces behaviour **assumed** |
+| Waking: launch each recipe app (`NSWorkspace.openApplication`), opening each document with a recipe app that can open it (else its default app). The first new stage made only of the record's apps within 30 s takes the record back (`MatchReason.woken`). | unit-tested 2026-11-04; **to verify live** |
+
 ## Activity log (M5)
 
 | Behaviour | Status |

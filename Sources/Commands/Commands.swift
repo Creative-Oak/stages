@@ -7,6 +7,7 @@ import Foundation
 ///   stages://name?value=Lodestone     (current stage; empty value clears)
 ///   stages://ink?value=teal           (or none)
 ///   stages://slot?value=3             (or none)
+///   stages://wake?name=Reading        (relaunch a sleeping stage's apps and documents)
 public enum Command: Equatable, Sendable {
   case switchToSlot(Int)
   case switchToName(String)
@@ -16,6 +17,7 @@ public enum Command: Equatable, Sendable {
   case rename(String?)
   case ink(String?)
   case slot(Int?)
+  case wake(String)
 
   public enum ParseError: Error, Equatable, CustomStringConvertible {
     case notStages(String)
@@ -26,7 +28,7 @@ public enum Command: Equatable, Sendable {
     public var description: String {
       switch self {
       case let .notStages(s): "not a stages:// URL: \(s)"
-      case let .unknownCommand(c): "unknown command “\(c)” (switch, next, previous, name, ink, slot)"
+      case let .unknownCommand(c): "unknown command “\(c)” (switch, next, previous, name, ink, slot, wake)"
       case let .missing(p): "missing parameter “\(p)”"
       case let .invalid(p, v): "invalid \(p): “\(v)”"
       }
@@ -72,6 +74,9 @@ public enum Command: Equatable, Sendable {
       if v == "none" || v == "0" || v.isEmpty { return .success(.slot(nil)) }
       guard let n = Int(v), (1...9).contains(n) else { return .failure(.invalid("slot", v)) }
       return .success(.slot(n))
+    case "wake":
+      guard let n = param("name")?.trimmingCharacters(in: .whitespaces), !n.isEmpty else { return .failure(.missing("name")) }
+      return .success(.wake(n))
     default:
       return .failure(.unknownCommand(name))
     }

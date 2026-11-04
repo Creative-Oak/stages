@@ -24,6 +24,8 @@ private func parse(_ s: String) -> Result<Command, Command.ParseError> { Command
     #expect(parse("stages://ink?value=none") == .success(.ink(nil)))
     #expect(parse("stages://slot?value=3") == .success(.slot(3)))
     #expect(parse("stages://slot?value=none") == .success(.slot(nil)))
+    #expect(parse("stages://wake?name=Reading") == .success(.wake("Reading")))
+    #expect(parse("stages://wake") == .failure(.missing("name")))
   }
 
   @Test func errors() {

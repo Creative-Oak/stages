@@ -155,10 +155,15 @@ public struct StageSnapshot: Codable, Hashable, Sendable {
   /// Sizes of every overlay, matched or not, sorted. Part of the signature so that two
   /// mid-animation reads that happen to agree on membership still differ.
   public var overlaySizes: [String] = []
+  /// Every window ID in the capture, stage member or not (hidden, other Spaces, minimised).
+  /// A stage whose windows are all absent from this has closed; one whose windows are here but
+  /// not in a stage is elsewhere (another Space). Not part of the signature.
+  public var allWindowIDs: Set<UInt32> = []
 
-  public init(capturedAt: Date, unavailable: Unavailable?, stages: [Stage], diagnostics: Diagnostics, overlaySizes: [String] = []) {
+  public init(capturedAt: Date, unavailable: Unavailable?, stages: [Stage], diagnostics: Diagnostics,
+              overlaySizes: [String] = [], allWindowIDs: Set<UInt32> = []) {
     self.capturedAt = capturedAt; self.unavailable = unavailable; self.stages = stages
-    self.diagnostics = diagnostics; self.overlaySizes = overlaySizes
+    self.diagnostics = diagnostics; self.overlaySizes = overlaySizes; self.allWindowIDs = allWindowIDs
   }
 
   public var isAvailable: Bool { unavailable == nil }
@@ -378,7 +383,7 @@ public enum StageReader {
     diag.confidence = diag.concerns.isEmpty ? .high : .low
 
     return StageSnapshot(capturedAt: capture.capturedAt, unavailable: nil, stages: stages, diagnostics: diag,
-                         overlaySizes: overlays.map { "\(Int($0.bounds.w.rounded()))x\(Int($0.bounds.h.rounded()))" }.sorted())
+                         overlaySizes: overlays.map { "\(Int($0.bounds.w.rounded()))x\(Int($0.bounds.h.rounded()))" }.sorted(), allWindowIDs: Set(capture.windows.map(\.id)))
   }
 }
 

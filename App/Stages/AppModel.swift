@@ -14,6 +14,10 @@ final class AppModel {
   private(set) var stages: [IdentifiedStage] = []
   /// All records, on screen or not (debug window).
   private(set) var records: [StageRecord] = []
+  /// Named stages whose windows have all closed; they can be woken.
+  private(set) var sleeping: [StageRecord] = []
+  /// After waking a stage: what happened (shown in the popover for a while).
+  private(set) var wakeNote: String?
 
   @ObservationIgnored let store = StageStore()
   @ObservationIgnored private let poller = StagePoller()
@@ -74,6 +78,7 @@ final class AppModel {
     self.snapshot = snapshot
     stages = store.reconcile(snapshot)
     records = Array(store.records.values)
+    sleeping = store.sleeping
     writeState()
     logActivity()
     // Mid-walk, intermediate snapshots don't move the menu bar off the target.
@@ -125,6 +130,8 @@ final class AppModel {
   func rename(_ id: UUID, _ name: String) { store.rename(id, to: name); refresh() }
   func setInk(_ id: UUID, _ ink: Ink?) { store.setInk(id, ink); refresh() }
   func setSlot(_ id: UUID, _ slot: Int?) { store.setSlot(id, slot); refresh() }
+  /// Drop a sleeping stage for good.
+  func forget(_ id: UUID) { store.forget(id); sleeping = store.sleeping; refresh() }
 
   /// Re-read records after an edit without waiting for the next snapshot.
   private func refresh() {
@@ -182,6 +189,12 @@ final class AppModel {
     case let .slot(n):
       guard let id = current?.id else { return report("No stage in the centre.") }
       setSlot(id, n)
+    case let .wake(name):
+      let names = sleeping.compactMap { r in r.name.map { (id: r.id, name: $0) } }
+      guard let id = Command.resolve(name: name, chosen: names) else {
+        return report("No sleeping stage matches “\(name)”.")
+      }
+      wake(id)
     }
   }
 
@@ -192,6 +205,32 @@ final class AppModel {
     Task { [weak self] in
       try? await Task.sleep(for: .seconds(8))
       if self?.switchProblem == problem { self?.switchProblem = nil }
+    }
+  }
+
+  // MARK: Sleeping stages
+
+  /// Relaunch a sleeping stage's apps and documents. Stage Manager gives each app its own
+  /// stage; the first one to appear takes the name back.
+  func wake(_ id: UUID) {
+    guard let record = store.records[id] else { return }
+    store.expectWake(id)
+    wakeNote = "Waking \(record.name ?? "stage")…"
+    poller.poke()
+    Task { [weak self] in
+      let result = await StageWaker.wake(record)
+      guard let self else { return }
+      Self.log.notice("wake: \(result.apps.count) app(s), \(result.documents) document(s), \(result.problems.count) problem(s)")
+      var note = result.apps.isEmpty ? "Couldn't wake \(record.name ?? "the stage")." :
+        "Woke \(record.name ?? "stage"): \(result.apps.joined(separator: ", "))" +
+        (result.documents > 0 ? ", \(result.documents) document\(result.documents == 1 ? "" : "s")." : ".")
+      if result.apps.count > 1 {
+        note += " Each app opened as its own stage: Shift-click their tiles in the strip to group them again."
+      }
+      if !result.problems.isEmpty { note += " " + result.problems.joined(separator: "; ") + "." }
+      self.wakeNote = note
+      try? await Task.sleep(for: .seconds(20))
+      if self.wakeNote == note { self.wakeNote = nil }
     }
   }
 

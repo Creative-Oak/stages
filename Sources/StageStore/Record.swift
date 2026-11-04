@@ -150,6 +150,8 @@ public enum MatchReason: Hashable, Sendable {
   case fingerprint(score: Double)
   /// Split off another record's stage.
   case splitFrom(UUID)
+  /// The first stage holding one of a sleeping record's apps after Stages woke it.
+  case woken
   case new
 
   public var summary: String {
@@ -161,6 +163,7 @@ public enum MatchReason: Hashable, Sendable {
     case let .revived(shared, of): return "revived after a merge (\(shared) of \(of) windows)"
     case let .fingerprint(score): return "fingerprint: apps and titles \(pct(score)) similar"
     case .splitFrom: return "new: split off another stage"
+    case .woken: return "woken from sleep"
     case .new: return "new stage"
     }
   }

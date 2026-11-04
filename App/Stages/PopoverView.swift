@@ -41,6 +41,13 @@ struct PopoverView: View {
         .overlay(alignment: .leading) { Rectangle().fill(.primary).frame(width: 2) }
       Divider()
     }
+    if let note = model.wakeNote {
+      Text(note).font(Theme.serif(12.5)).foregroundStyle(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.horizontal, 14).padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+      Divider()
+    }
   }
 
   // MARK: Header / footer
@@ -97,6 +104,11 @@ struct PopoverView: View {
                   empty: "Nothing on the centre stage. Click a stage in the strip to bring it here.")
           section("Strip", model.stages(.strip), empty: nil)
           section("Overflow", model.stages(.overflow), empty: nil)
+          if !model.sleeping.isEmpty {
+            Theme.label("Sleeping")
+              .padding(.horizontal, 14).padding(.top, 12).padding(.bottom, 4)
+            ForEach(model.sleeping) { r in SleepingRow(model: model, record: r) }
+          }
         }
         .padding(.bottom, 6)
       }
@@ -328,6 +340,47 @@ struct UnavailableView: View {
       "Turn on Stage Manager in Control Centre or in Desktop & Dock settings, and your stages will appear here."
     case .noOverlays:
       "Stage Manager is on, but its stage overlays weren't in the window list. If you just allowed Screen Recording, relaunch Stages. Otherwise, Copy Diagnostics and send it to the developer."
+    }
+  }
+}
+
+// MARK: - Sleeping
+
+/// A named stage whose windows have all closed: its recipe (apps, documents) and a Wake button.
+/// Drawn dashed, the design system's mark for "not shown".
+struct SleepingRow: View {
+  let model: AppModel
+  let record: StageRecord
+
+  var body: some View {
+    HStack(alignment: .top, spacing: 10) {
+      InkSwatch(ink: record.ink, size: 10).padding(.top, 4).opacity(0.6)
+      VStack(alignment: .leading, spacing: 3) {
+        HStack(spacing: 6) {
+          Text(record.name ?? "Stage").font(Theme.grotesk(14, .semibold)).foregroundStyle(.secondary).lineLimit(1)
+          Spacer(minLength: 4)
+          HStack(spacing: -3) {
+            ForEach(record.fingerprint.apps.sorted(), id: \.self) { id in
+              if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) {
+                Image(nsImage: NSWorkspace.shared.icon(forFile: url.path)).resizable().frame(width: 16, height: 16).opacity(0.7)
+              }
+            }
+          }
+          Button("Wake") { model.wake(record.id) }.controlSize(.small)
+        }
+        let docs = record.fingerprint.documents.count
+        Text(docs == 0 ? "\(record.fingerprint.apps.count) app(s), no documents recorded"
+                       : "\(record.fingerprint.apps.count) app(s), \(docs) document\(docs == 1 ? "" : "s")")
+          .font(.system(size: 11)).foregroundStyle(.tertiary)
+        if let last = record.lastActive {
+          Text("last used \(last.formatted(.relative(presentation: .named)))").font(.system(size: 11)).foregroundStyle(.tertiary)
+        }
+      }
+    }
+    .padding(.horizontal, 14).padding(.vertical, 7)
+    .overlay(Rectangle().strokeBorder(.secondary.opacity(0.35), style: StrokeStyle(lineWidth: 1, dash: [3, 2])).padding(.horizontal, 6))
+    .contextMenu {
+      Button("Forget This Stage") { model.forget(record.id) }
     }
   }
 }

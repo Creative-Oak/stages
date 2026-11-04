@@ -81,7 +81,9 @@ public final class StageStore {
       StageMatcher.Input(windowIDs: $0.windowIDs, fingerprint: Fingerprint(stage: $0, documents: documents),
                          groupingVisible: !$0.pooled)
     }
-    let plan = StageMatcher.plan(stages: inputs, records: Array(records.values))
+    var plan = StageMatcher.plan(stages: inputs, records: Array(records.values))
+    claimWakes(&plan, inputs: inputs, at: t)
+    lastLiveWindowIDs = snapshot.allWindowIDs
 
     for (loser, keeper) in plan.dormant {
       records[loser]?.state = .dormant
@@ -119,6 +121,45 @@ public final class StageStore {
     case let .splitFrom(source): return "split: \(short(id)) new, off \(short(source))"
     case let .revived(shared, _): return "revive: \(short(id)) (\(shared) windows)"
     case let .fingerprint(score): return "fingerprint: \(short(id)) score \(Int(score * 100))"
+    case .woken: return "woken: \(short(id)) (\(windows) windows)"
+    }
+  }
+
+  // MARK: Sleeping and waking
+
+  /// Window IDs present anywhere in the last capture.
+  private var lastLiveWindowIDs: Set<UInt32> = []
+  /// Records Stages just woke: their apps, and until when a new stage may claim them.
+  private var wakes: [UUID: (apps: Set<String>, until: Date)] = [:]
+  public static let wakeWindow: TimeInterval = 30
+
+  /// Named stages whose windows have all closed (not on another Space: those windows still
+  /// exist), most recently used first. They can be woken.
+  public var sleeping: [StageRecord] {
+    let onScreen = Set(lastReasons.keys)
+    return records.values
+      .filter { $0.name != nil && $0.state == .active && !onScreen.contains($0.id) && $0.windowIDs.isDisjoint(with: lastLiveWindowIDs) }
+      .sorted { ($0.lastActive ?? $0.createdAt) > ($1.lastActive ?? $1.createdAt) }
+  }
+
+  /// Stages is about to relaunch this record's apps: the first new stage made only of those apps
+  /// takes the record (and its name) back.
+  public func expectWake(_ id: UUID) {
+    guard let r = records[id] else { return }
+    wakes[id] = (r.fingerprint.apps, now().addingTimeInterval(Self.wakeWindow))
+  }
+
+  private func claimWakes(_ plan: inout StageMatcher.Plan, inputs: [StageMatcher.Input], at t: Date) {
+    wakes = wakes.filter { $0.value.until > t }
+    guard !wakes.isEmpty else { return }
+    let taken = Set(plan.assignments.values.compactMap(\.record))
+    for i in inputs.indices.sorted() where plan.assignments[i]?.record == nil {
+      let apps = inputs[i].fingerprint.apps
+      guard !apps.isEmpty,
+            let (id, _) = wakes.first(where: { !taken.contains($0.key) && apps.isSubset(of: $0.value.apps) })
+      else { continue }
+      plan.assignments[i] = (id, .woken)
+      wakes[id] = nil
     }
   }
 
@@ -184,6 +225,13 @@ public final class StageStore {
   }
 
   public func setInk(_ id: UUID, _ ink: Ink?) { update(id) { $0.ink = ink } }
+
+  /// Removes a record (and links to it). Named records are never pruned otherwise.
+  public func forget(_ id: UUID) {
+    records[id] = nil
+    for (other, r) in records where r.mergedInto == id { records[other]?.mergedInto = nil }
+    save()
+  }
 
   /// Assigning a slot takes it away from whichever record had it.
   public func setSlot(_ id: UUID, _ slot: Int?) {
