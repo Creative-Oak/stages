@@ -103,3 +103,20 @@ import Testing
     #expect(Set(finder.map(\.maxX)) == [-300, -284, -268])
   }
 }
+
+@Suite struct SwitchAnimationLayerTests {
+  @Test func layerZeroThumbnailsStayInTheStrip() throws {
+    // `settings-centre` frame 4: mid-switch, every overlay is layer 0.
+    let s = StageReader.read(try RecordedFixtureTests.fixture("settings-centre").frames[4])
+    #expect(s.stages(.strip).map(\.owners) == [["Claude"], ["Microsoft Word", "Finder"], ["Safari"]])
+    #expect(s.stages(.overflow).count == 6)
+    #expect(s.stages(.centre).first?.owners.first == "System Settings")
+    #expect(s.diagnostics.classification.contains { $0.contains("read as thumbnails") })
+  }
+
+  @Test func beforeTheSwitchSettingsIsAStripThumbnail() throws {
+    let s = StageReader.read(try RecordedFixtureTests.fixture("settings-centre").frames[0])
+    #expect(s.stages(.centre).map(\.owners) == [["Ghostty"]])
+    #expect(s.stages(.strip).map(\.owners).contains(["System Settings"]))
+  }
+}

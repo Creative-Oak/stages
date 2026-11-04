@@ -199,7 +199,8 @@ public enum StageReader {
     // 1. Collect overlays, app icons and candidate app windows.
     let wm = capture.windows.filter { $0.owner == C.ownerName }
     let overlays = wm.filter { $0.name == C.overlayTitle }
-    let icons = wm.filter { $0.name == C.appIconTitle && $0.layer == C.stripLayer }
+    // Badges are layer 19 normally but drop to layer 0 with the overlays during a switch.
+    let icons = wm.filter { $0.name == C.appIconTitle }
     diag.overlayCount = overlays.count
     diag.appIconCount = icons.count
     if overlays.isEmpty { return unavailable(.noOverlays) }
@@ -285,7 +286,15 @@ public enum StageReader {
         diag.concerns.append("\(inStripBand.count) thumbnail-like window(s) with no overlay in the strip band")
       }
       diag.centreWithoutOverlay += bare.map(\.id)
-      let centre = (here.filter { overlayOf[$0.id]!.layer == C.centreLayer } + bare).sorted { $0.z < $1.z }
+      // During a stage switch every overlay drops to layer 0, strip thumbnails' included, so a
+      // layer-0 overlay wholly in the strip band is still a thumbnail.
+      func inBand(_ r: Rect) -> Bool { r.maxX <= d.frame.minX + C.stripBandRight }
+      let layerZero = here.filter { overlayOf[$0.id]!.layer == C.centreLayer }
+      let demoted = layerZero.filter { inBand(overlayOf[$0.id]!.bounds) }
+      if !demoted.isEmpty {
+        diag.classification.append("\(demoted.count) layer-0 overlay(s) in the strip band read as thumbnails")
+      }
+      let centre = (layerZero.filter { !inBand(overlayOf[$0.id]!.bounds) } + bare).sorted { $0.z < $1.z }
       if !centre.isEmpty {
         let bounds = centre.map { overlayOf[$0.id]?.bounds ?? $0.bounds }
         let frame = bounds.dropFirst().reduce(bounds[0]) { $0.union($1) }
@@ -294,7 +303,7 @@ public enum StageReader {
       }
 
       // 4. Strip stages = connected components of substantially overlapping layer-19 overlays.
-      let strip = here.filter { overlayOf[$0.id]!.layer == C.stripLayer }
+      let strip = here.filter { overlayOf[$0.id]!.layer == C.stripLayer } + demoted
       func grouped(_ a: Rect, _ b: Rect) -> Bool {
         a.intersectionArea(b) >= C.groupOverlapRatio * min(a.area, b.area)
       }
