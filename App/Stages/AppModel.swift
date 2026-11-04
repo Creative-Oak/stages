@@ -57,6 +57,25 @@ final class AppModel {
   /// Apps by last activation, most recent first (orders the in-stage switcher; CG z-order under
   /// Stage Manager doesn't reliably put the active app's window in front).
   @ObservationIgnored private var appRecency: [Int32] = []
+  /// The app last in focus in each stage, noted only while the screen is settled and no switch
+  /// of ours is in flight (Stage Manager activates apps on its own mid-switch). Switching back
+  /// raises that app's window, and it's the top icon in the switcher.
+  @ObservationIgnored private var stageFocus: [UUID: Int32] = [:]
+
+  private func noteFocus() {
+    guard pendingTarget == nil, !steppingActive,
+          let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier,
+          let centre = stages.first(where: { $0.stage.position == .centre }),
+          centre.stage.windows.contains(where: { $0.pid == pid }) else { return }
+    stageFocus[centre.id] = pid
+  }
+
+  /// The window a switch to `stage` raises: the last focused app's front window there.
+  private func focusWindow(in stage: IdentifiedStage) -> StageWindow? {
+    let ws = stage.stage.windows.sorted { $0.z < $1.z }
+    if let pid = stageFocus[stage.id], let w = ws.first(where: { $0.pid == pid }) { return w }
+    return ws.first
+  }
 
   private func activated(_ pid: Int32?) {
     activatedAt = .now
@@ -64,6 +83,14 @@ final class AppModel {
     if let a = awaitingActivation, a.pid == pid {
       Self.log.notice("switch: frontmost after \(Self.ms(ContinuousClock.now - a.since)) ms")
       awaitingActivation = nil
+    }
+    // A click between apps of this stage changes no stage, so no snapshot will note it: note it
+    // once things are still (if a stage switch follows instead, its commit notes the new stage).
+    let centreNow = committedCentre
+    Task { [weak self] in
+      try? await Task.sleep(for: .milliseconds(700))
+      guard let self, self.committedCentre == centreNow else { return }
+      self.noteFocus()
     }
     // While stepping, activations come from Stage Manager's animation; the target stands.
     guard !steppingActive else { return }
@@ -115,6 +142,7 @@ final class AppModel {
     }
     resolveDocuments()
     onCommitted?()
+    noteFocus()
     prewarmSwitching()   // links AX windows to CG windows where certain (cheap when nothing changed)
   }
 
@@ -382,7 +410,8 @@ final class AppModel {
 
   /// A stage's app icons, most recently used app first (then front to back).
   func appIcons(_ stage: IdentifiedStage) -> [NSImage] {
-    func rank(_ pid: Int32) -> Int { appRecency.firstIndex(of: pid) ?? Int.max }
+    let last = stageFocus[stage.id]
+    func rank(_ pid: Int32) -> Int { pid == last ? -1 : (appRecency.firstIndex(of: pid) ?? Int.max) }
     var seen = Set<Int32>()
     return stage.stage.windows.sorted { (rank($0.pid), $0.z) < (rank($1.pid), $1.z) }.compactMap { w in
       guard seen.insert(w.pid).inserted else { return nil }
@@ -478,7 +507,7 @@ final class AppModel {
   /// Raise the stage's most recent window, then check the next snapshots for the stage in the
   /// centre; retry once, then report.
   func switchTo(_ id: UUID) {
-    guard let stage = stages.first(where: { $0.id == id }), let window = stage.stage.windows.min(by: { $0.z < $1.z }) else { return }
+    guard let stage = stages.first(where: { $0.id == id }), let window = focusWindow(in: stage) else { return }
     switchGeneration += 1
     let generation = switchGeneration
     guard committedCentre != id || pendingTarget != nil else { provisionalCurrent = nil; return }
