@@ -150,6 +150,7 @@ final class AppModel {
   func step(_ by: Int) {
     guard let target = SwitcherOrder.neighbour(of: current?.id, in: candidates, step: by) else { return }
     provisionalCurrent = target.id
+    onStep?(target.id)
     pendingStep?.cancel()
     pendingStep = Task { [weak self] in
       try? await Task.sleep(for: .milliseconds(180))
@@ -158,6 +159,8 @@ final class AppModel {
     }
   }
   @ObservationIgnored private var pendingStep: Task<Void, Never>?
+  /// Called with each step's target (the ring panel shows it).
+  @ObservationIgnored var onStep: ((UUID) -> Void)?
   /// Only the newest switch may retry or report; older ones stop when superseded.
   @ObservationIgnored private var switchGeneration = 0
 

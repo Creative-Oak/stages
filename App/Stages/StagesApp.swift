@@ -15,10 +15,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private let model = AppModel()
   private var statusItem: StatusItemController?
   private var hotkeys: HotkeyTap?
+  private var ring: RingPanel?
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     statusItem = StatusItemController(model: model)
     model.start()
+    let ring = RingPanel(model: model)
+    self.ring = ring
+    model.onStep = { ring.show(target: $0) }
     hotkeys = HotkeyTap(model: model, panel: SwitcherPanel(model: model))
     hotkeys?.start()
   }
