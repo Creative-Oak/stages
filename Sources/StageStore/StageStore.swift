@@ -43,6 +43,8 @@ public final class StageStore {
   /// returned unchanged.
   public func reconcile(_ snapshot: StageSnapshot) -> [IdentifiedStage] {
     guard snapshot.isAvailable else { return [] }
+    var snapshot = snapshot
+    if snapshot.allAtOnce { snapshot.stages = carveBorrowed(snapshot.stages) }
     if let why = implausibility(snapshot.stages) {
       lastRejection = why
       onEvent?("rejected snapshot: \(why)")
@@ -57,6 +59,45 @@ public final class StageStore {
   /// Why the last snapshot was ignored, if it was.
   public private(set) var lastRejection: String?
   private var lastResult: [IdentifiedStage] = []
+
+  /// Under "All at Once", activating an app pulls the windows of its *other* stages into the
+  /// centre too. That's borrowing, not grouping: the centre stage is the one owning the
+  /// frontmost window, and windows of other known stages made only of apps already in it go
+  /// back to their own stage (listed with the strip, since that's where they return). A drag of
+  /// a different app is still a merge. Cost: grouping two stages of the same app by hand isn't
+  /// detected.
+  func carveBorrowed(_ stages: [Stage]) -> [Stage] {
+    var owner: [UInt32: UUID] = [:]
+    for r in records.values where r.state == .active && r.membershipSeen { for id in r.windowIDs { owner[id] = r.id } }
+    var result: [Stage] = []
+    var carved: [Stage] = []
+    for s in stages {
+      guard s.position == .centre, !s.pooled, let front = s.windows.min(by: { $0.z < $1.z }) else { result.append(s); continue }
+      let keeper = owner[front.id]
+      // The stage's own windows: the keeper's, plus new ones no record knows yet.
+      let home = s.windows.filter { owner[$0.id] == nil || owner[$0.id] == keeper }
+      let homeApps = Set(home.map(\.owner))
+      var byOwner: [UUID: [StageWindow]] = [:]
+      for w in s.windows { if let o = owner[w.id], o != keeper { byOwner[o, default: []].append(w) } }
+      var kept = s
+      for (o, windows) in byOwner.sorted(by: { $0.key.uuidString < $1.key.uuidString }) {
+        let ids = Set(windows.map(\.id))
+        // Only same-app windows are borrowed; a different app joining is a real merge.
+        guard !homeApps.isEmpty, Set(windows.map(\.owner)).isSubset(of: homeApps), records[o] != nil else { continue }
+        kept.windows.removeAll { ids.contains($0.id) }
+        let frame = windows.dropFirst().reduce(windows[0].frame) { $0.union($1.frame) }
+        carved.append(Stage(position: .strip, order: 0, displayID: s.displayID, windows: windows.sorted { $0.z < $1.z },
+                            frame: frame, appIconCount: nil, pooled: true))
+      }
+      result.append(kept)
+    }
+    // Borrowed stages sort after the strip, so the strip's own order is untouched.
+    for (i, var c) in carved.enumerated() {
+      c.order = (result.filter { $0.position == .strip && $0.displayID == c.displayID }.map(\.order).max() ?? -1) + 1 + i
+      result.append(c)
+    }
+    return result
+  }
 
   /// Stage Manager changes one step at a time: a new window, or one stage dragged into another.
   /// So a visible stage holding windows of three or more known records is a misread (Mission

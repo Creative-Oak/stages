@@ -358,12 +358,12 @@ private func tempDir() -> URL {
     var t = Date(timeIntervalSince1970: 0)
     let store = StageStore(directory: nil, now: { t })
     // B is created first (older), A is in the centre when B is dragged into it.
-    let b = store.reconcile(snapshot([stage([2], .centre)]))[0].id
+    let b = store.reconcile(snapshot([stage([2], .centre, apps: ["Notes"])]))[0].id
     t += 10
-    let a = store.reconcile(snapshot([stage([1], .centre), stage([2])]))[0].id
+    let a = store.reconcile(snapshot([stage([1], .centre, apps: ["Safari"]), stage([2], apps: ["Notes"])]))[0].id
     store.rename(a, to: "A"); store.rename(b, to: "B")
     t += 10
-    let merged = store.reconcile(snapshot([stage([1, 2], .centre)]))
+    let merged = store.reconcile(snapshot([stage([1, 2], .centre, apps: ["Safari", "Notes"])]))
     #expect(merged[0].record.name == "A")
     #expect(store.records[b]?.state == .dormant)
   }
@@ -406,25 +406,27 @@ private func tempDir() -> URL {
     let store = StageStore(directory: nil)
     var events: [String] = []
     store.onEvent = { events.append($0) }
-    let good = store.reconcile(snapshot([stage([1], .centre), stage([2, 3]), stage([4]), stage([5])]))
+    let good = store.reconcile(snapshot([stage([1], .centre, apps: ["A"]), stage([2, 3], apps: ["B"]),
+                                         stage([4], apps: ["C"]), stage([5], apps: ["D"])]))
     store.rename(good[1].id, to: "B")
     let before = store.records
-    let bogus = store.reconcile(snapshot([stage([1, 2, 3, 4, 5], .centre)]))
+    let bogus = store.reconcile(snapshot([stage([1, 2, 3, 4, 5], .centre, apps: ["A", "B", "B", "C", "D"])]))
     #expect(bogus.map(\.id) == good.map(\.id))   // last good state, unchanged
     #expect(store.records == before)
     #expect(store.lastRejection != nil)
     #expect(events.last?.hasPrefix("rejected snapshot") == true)
     // Back to normal: same identities, and B wasn't touched.
-    let after = store.reconcile(snapshot([stage([1], .centre), stage([2, 3]), stage([4]), stage([5])]))
+    let after = store.reconcile(snapshot([stage([1], .centre, apps: ["A"]), stage([2, 3], apps: ["B"]),
+                                          stage([4], apps: ["C"]), stage([5], apps: ["D"])]))
     #expect(after.map(\.id) == good.map(\.id))
     #expect(after[1].record.name == "B" && store.lastRejection == nil)
   }
 
   @Test func secondDragIntoAMergedGroupIsStillAMerge() {
     let store = StageStore(directory: nil)
-    let s = store.reconcile(snapshot([stage([1], .centre), stage([2]), stage([3])]))
-    _ = store.reconcile(snapshot([stage([1, 2], .centre), stage([3])]))      // first drag
-    let second = store.reconcile(snapshot([stage([1, 2, 3], .centre)]))      // second drag
+    let s = store.reconcile(snapshot([stage([1], .centre, apps: ["A"]), stage([2], apps: ["B"]), stage([3], apps: ["C"])]))
+    _ = store.reconcile(snapshot([stage([1, 2], .centre, apps: ["A", "B"]), stage([3], apps: ["C"])]))   // first drag
+    let second = store.reconcile(snapshot([stage([1, 2, 3], .centre, apps: ["A", "B", "C"])]))           // second drag
     #expect(store.lastRejection == nil)
     #expect(second.count == 1 && second[0].id == s[0].id)
     if case .merged = second[0].reason {} else { Issue.record("\(second[0].reason)") }
@@ -532,5 +534,53 @@ private func snapshot(_ stages: [Stage], live: Set<UInt32>) -> StageSnapshot {
     _ = store.reconcile(snapshot([stage([10, 11], .centre, apps: ["Calendar", "Reminders"])], live: [10, 11]))
     #expect(store.records[id]?.recipe == nil)
     #expect(store.records[id]?.wakeRecipe.apps.count == 2)
+  }
+}
+
+@MainActor @Suite struct AllAtOnceBorrowingTests {
+  private func centre(_ ids: [UInt32], apps: [String]) -> Stage {
+    var s = stage(ids, .centre, apps: apps)
+    // Frontmost window first (z 0).
+    s.windows = s.windows.enumerated().map { i, w in var w = w; w.z = i; return w }
+    return s
+  }
+
+  @Test func otherSafariStagesStayListedWhenSafariIsActive() {
+    let store = StageStore(directory: nil)
+    // Two Safari stages and Mail, seen apart.
+    let s = store.reconcile(snapshot([stage([1], .centre, apps: ["Mail"]), stage([2], apps: ["Safari"]),
+                                      stage([3], apps: ["Safari"])]))
+    store.rename(s[2].id, to: "Research")
+    // Switch to the first Safari stage: All at Once pulls window 3 into the centre too.
+    let on = store.reconcile(snapshot([centre([2, 3], apps: ["Safari"]), stage([1], apps: ["Mail"])]))
+    #expect(on.count == 3)
+    #expect(on.first { $0.stage.position == .centre }?.id == s[1].id)
+    #expect(on.contains { $0.id == s[2].id && $0.record.name == "Research" })
+    #expect(store.records.values.allSatisfy { $0.state == .active })
+  }
+
+  @Test func threeSafariStagesAreNotRejected() {
+    let store = StageStore(directory: nil)
+    _ = store.reconcile(snapshot([stage([1], .centre, apps: ["Mail"]), stage([2], apps: ["Safari"]),
+                                  stage([3], apps: ["Safari"]), stage([4], apps: ["Safari"])]))
+    let on = store.reconcile(snapshot([centre([2, 3, 4], apps: ["Safari"]), stage([1], apps: ["Mail"])]))
+    #expect(store.lastRejection == nil)
+    #expect(on.count == 4)
+  }
+
+  @Test func draggingADifferentAppInIsStillAMerge() {
+    let store = StageStore(directory: nil)
+    let s = store.reconcile(snapshot([stage([1], .centre, apps: ["Safari"]), stage([2], apps: ["Notes"])]))
+    let merged = store.reconcile(snapshot([centre([1, 2], apps: ["Safari", "Notes"])]))
+    #expect(merged.count == 1)
+    #expect(store.records[s[1].id]?.state == .dormant)
+  }
+
+  @Test func oneAtATimeDoesNotCarve() {
+    let store = StageStore(directory: nil)
+    _ = store.reconcile(snapshot([stage([1], .centre, apps: ["Mail"]), stage([2], apps: ["Safari"]), stage([3], apps: ["Safari"])]))
+    var snap = snapshot([centre([2, 3], apps: ["Safari"]), stage([1], apps: ["Mail"])])
+    snap.allAtOnce = false
+    #expect(store.reconcile(snap).count == 2)
   }
 }
