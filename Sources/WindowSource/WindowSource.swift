@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import CoreGraphics
+import os
 import StageReader
 
 /// Something that can produce a `WindowCapture`. Live in the app, fixtures in tests.
@@ -25,7 +26,10 @@ public final class FixtureWindowSource: WindowSource, @unchecked Sendable {
 }
 
 public struct LiveWindowSource: WindowSource {
-  public init() {}
+  /// Read WindowManager's strip tiles (an AX round trip, up to 0.15 s if it's busy). Off for the
+  /// quick read the switcher does as it opens.
+  public var readTiles: Bool
+  public init(readTiles: Bool = true) { self.readTiles = readTiles }
 
   public func capture() -> WindowCapture {
     let raw = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] ?? []
@@ -59,12 +63,22 @@ public struct LiveWindowSource: WindowSource {
     return WindowCapture(
       capturedAt: Date(),
       stageManagerEnabled: (pref(StageManagerConstants.enabledKey) as? NSNumber)?.boolValue,
-      screenRecordingGranted: CGPreflightScreenCaptureAccess(),
+      screenRecordingGranted: Self.screenRecordingGranted(),
       appWindowGroupingBehavior: (pref(StageManagerConstants.groupingKey) as? NSNumber)?.intValue,
       stripAutoHide: (pref(StageManagerConstants.autoHideKey) as? NSNumber)?.boolValue,
       displays: Self.displays(),
       windows: windows,
-      stripTiles: StripTiles.read())
+      stripTiles: readTiles ? StripTiles.read() : nil)
+  }
+
+  /// `CGPreflightScreenCaptureAccess()` asks TCC each time (~7.6 ms measured 2026-11-04), and
+  /// this runs on every poll; the answer is reused for 2 s (a grant is noticed within that).
+  private static let screenRecording = OSAllocatedUnfairLock<(granted: Bool, at: ContinuousClock.Instant)?>(initialState: nil)
+  static func screenRecordingGranted() -> Bool {
+    if let c = screenRecording.withLock({ $0 }), ContinuousClock.now - c.at < .seconds(2) { return c.granted }
+    let granted = CGPreflightScreenCaptureAccess()
+    screenRecording.withLock { $0 = (granted, .now) }
+    return granted
   }
 
   public static func displays() -> [DisplayInfo] {

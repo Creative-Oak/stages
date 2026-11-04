@@ -300,13 +300,24 @@ final class AppModel {
   /// While a switch is in flight its target is "current" and the stage it left is most recent.
   var candidates: [Candidate] { candidates(current: pendingTarget ?? committedCentre) }
 
-  /// The switcher's list as it opens. The last snapshot can be a second or two behind (a window
-  /// just closed, Stage Manager still animating), so stages whose windows no longer exist are
-  /// left out, and the current stage is the one just switched to, else the frontmost app's.
+  /// The switcher's list as it opens. The committed snapshot can be a second behind (a window just
+  /// closed; Stage Manager still animating), so this takes a quick read of its own (window list
+  /// only, no AX: a few ms) and leaves out stages none of whose windows Stage Manager shows any
+  /// more. That catches windows an app keeps after closing them (Calendar does: ordered out, so
+  /// they still exist). The current stage is the one just switched to, else the one in the centre
+  /// now, else the frontmost app's.
   func switcherCandidates() -> [Candidate] {
-    let alive = Self.existingWindows(stages.flatMap { $0.stage.windows.map(\.id) })
-    let gone = Set(stages.filter { s in !s.stage.windows.contains { alive.contains($0.id) } }.map(\.id))
-    var current = pendingTarget ?? provisionalCurrent ?? committedCentre
+    let fresh = StageReader.read(LiveWindowSource(readTiles: false).capture())
+    let shown: Set<UInt32>
+    if fresh.isAvailable {
+      shown = Set(fresh.stages.flatMap { $0.windows.map(\.id) })
+    } else {
+      shown = Self.existingWindows(stages.flatMap { $0.stage.windows.map(\.id) })
+    }
+    let gone = Set(stages.filter { s in !s.stage.windows.contains { shown.contains($0.id) } }.map(\.id))
+    let freshFront = fresh.stages.first { $0.position == .centre }?.windows.min(by: { $0.z < $1.z })?.id
+    let freshCentre = freshFront.flatMap { id in stages.first { $0.stage.windows.contains { $0.id == id } }?.id }
+    var current = pendingTarget ?? provisionalCurrent ?? freshCentre ?? committedCentre
     if current.map(gone.contains) ?? true { current = frontmostStage(excluding: gone) }
     return candidates(current: current).filter { !gone.contains($0.id) }
   }
