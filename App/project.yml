@@ -19,6 +19,8 @@ targets:
         product: WindowSource
       - package: StagesKit
         product: StageStore
+      - package: StagesKit
+        product: Switcher
     info:
       path: Stages/Info.plist
       properties:

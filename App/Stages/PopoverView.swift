@@ -5,16 +5,42 @@ import StageStore
 struct PopoverView: View {
   @Bindable var model: AppModel
   @State private var editing: UUID?
+  @State private var axTrusted = Permissions.accessibility
+  private let permissionTimer = Timer.publish(every: 1.5, on: .main, in: .common).autoconnect()
 
   var body: some View {
     VStack(spacing: 0) {
       header
       Divider()
+      notices
       content
       Divider()
       footer
     }
     .frame(width: 360)
+    .onReceive(permissionTimer) { _ in axTrusted = Permissions.accessibility }
+  }
+
+  /// Switching needs Accessibility; reading doesn't. Say so, and offer the fix.
+  @ViewBuilder private var notices: some View {
+    if model.snapshot?.isAvailable == true && !axTrusted {
+      HStack(alignment: .firstTextBaseline, spacing: 10) {
+        Text("Switching and shortcuts need Accessibility permission.")
+          .font(Theme.serif(13)).foregroundStyle(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
+        Spacer(minLength: 4)
+        Button("Allow…") { Permissions.requestAccessibility() }.controlSize(.small)
+      }
+      .padding(.horizontal, 14).padding(.vertical, 9)
+      Divider()
+    }
+    if let problem = model.switchProblem {
+      Text(problem).font(Theme.grotesk(12, .medium))
+        .padding(.horizontal, 14).padding(.vertical, 7)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .leading) { Rectangle().fill(.primary).frame(width: 2) }
+      Divider()
+    }
   }
 
   // MARK: Header / footer
@@ -45,6 +71,8 @@ struct PopoverView: View {
         .disabled(model.snapshot == nil)
       Button("Matching…") { MatchingDebugWindow.show(model: model) }
       Spacer()
+      Button("Settings…") { SettingsWindow.show() }
+        .keyboardShortcut(",")
       Button("Quit Stages") { NSApp.terminate(nil) }
         .keyboardShortcut("q")
     }
@@ -208,6 +236,12 @@ struct StageEditor: View {
         .pickerStyle(.segmented)
         .labelsHidden()
         .controlSize(.small)
+      }
+
+      if stage.stage.position != .centre {
+        Button("Bring to Centre") { model.switchTo(stage.id) }
+          .controlSize(.small)
+          .disabled(!Permissions.accessibility)
       }
     }
     .padding(.leading, 34).padding(.trailing, 14).padding(.bottom, 10).padding(.top, 2)

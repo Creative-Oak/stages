@@ -14,10 +14,13 @@ enum StagesMain {
 final class AppDelegate: NSObject, NSApplicationDelegate {
   private let model = AppModel()
   private var statusItem: StatusItemController?
+  private var hotkeys: HotkeyTap?
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     statusItem = StatusItemController(model: model)
     model.start()
+    hotkeys = HotkeyTap(model: model, panel: SwitcherPanel(model: model))
+    hotkeys?.start()
   }
 }
 
@@ -28,6 +31,17 @@ enum Permissions {
   static func requestScreenRecording() {
     _ = CGRequestScreenCaptureAccess()
     open("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+  }
+
+  /// Needed to raise windows (switching) and for the keyboard shortcuts' event tap.
+  static var accessibility: Bool { AXIsProcessTrusted() }
+
+  /// Shows the system prompt (which adds Stages to the list) and opens the pane.
+  static func requestAccessibility() {
+    // kAXTrustedCheckOptionPrompt is a C global Swift 6 won't read; its value is this string.
+    let opts = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
+    _ = AXIsProcessTrustedWithOptions(opts)
+    open("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
   }
 
   static func openStageManagerSettings() {

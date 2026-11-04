@@ -3,6 +3,8 @@
 //   stagesctl read [fixture.json] [--frame N] [--json]   read live (or a fixture) and explain it
 //   stagesctl watch                                      print each committed snapshot + poll cost
 //   stagesctl record <name> --note "…" [--frames N] [--interval ms] [--delay s] [--out dir] [--keep-titles]
+//   stagesctl gestures                                   spike: print the gesture events a global
+//                                                        event tap receives (needs Accessibility)
 //
 // Run with: xcrun swift run stagesctl …  (never bare `swift`: see README)
 
@@ -162,6 +164,65 @@ case "record":
   print("Wrote \(frames) frame(s) to \(path)\(keepTitles ? "" : " (app window titles redacted)")\n")
   report(StageReader.read(captures.last!), capture: captures.last!)
 
+case "gestures":
+  // Swipe spike (M3): which trackpad gesture events reach a public, listen-only event tap?
+  guard AXIsProcessTrusted() else {
+    fail("gestures needs Accessibility for this terminal (System Settings → Privacy & Security → Accessibility).")
+  }
+  print("Listening. Try 2-, 3- and 4-finger swipes left/right/up/down, pinches, and a scroll. Ctrl-C to stop.\n")
+  guard let tap = CGEvent.tapCreate(
+    tap: .cgSessionEventTap, place: .tailAppendEventTap, options: .listenOnly, eventsOfInterest: CGEventMask.max,
+    callback: { _, type, cg, _ in
+      MainActor.assumeIsolated {
+        // CG type 30 is the Dock's own gesture event (Spaces, Mission Control); AppKit can't
+        // convert it and its contents are undocumented. Count it, don't parse it.
+        if type.rawValue == 30 {
+          GestureSpike.dockEvents += 1
+          if GestureSpike.dockEvents % 15 == 1 { print("\(Date().formatted(date: .omitted, time: .standard)) cg type 30 (Dock gesture) ×\(GestureSpike.dockEvents)") }
+          return
+        }
+        guard let e = NSEvent(cgEvent: cg), !GestureSpike.noisy.contains(e.type) else { return }
+        let f = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
+        switch e.type {
+        case .scrollWheel:
+          // Summarise scrolls: one line per gesture phase change.
+          guard e.phase == .began || e.phase == .ended || Date().timeIntervalSince(GestureSpike.lastScroll) > 1 else { return }
+          GestureSpike.lastScroll = Date()
+          print("\(f) scroll    phase=\(e.phase.rawValue) momentum=\(e.momentumPhase.rawValue) dX=\(e.scrollingDeltaX) dY=\(e.scrollingDeltaY) precise=\(e.hasPreciseScrollingDeltas)")
+        case .swipe:
+          print("\(f) SWIPE     dX=\(e.deltaX) dY=\(e.deltaY) phase=\(e.phase.rawValue)")
+        case .gesture:
+          // Public touch data: finger count and their average position (0…1 on the trackpad).
+          let touches = e.allTouches().filter { $0.phase != .ended && $0.phase != .cancelled }
+          let n = touches.count
+          let x = n == 0 ? 0 : touches.map(\.normalizedPosition.x).reduce(0, +) / CGFloat(n)
+          let y = n == 0 ? 0 : touches.map(\.normalizedPosition.y).reduce(0, +) / CGFloat(n)
+          guard n != GestureSpike.lastFingers || abs(x - GestureSpike.lastX) > 0.08 || abs(y - GestureSpike.lastY) > 0.08 else { return }
+          GestureSpike.lastFingers = n; GestureSpike.lastX = x; GestureSpike.lastY = y
+          print("\(f) gesture   fingers=\(n) x=\(String(format: "%.2f", x)) y=\(String(format: "%.2f", y)) phase=\(e.phase.rawValue)")
+        case .magnify, .rotate, .smartMagnify, .beginGesture, .endGesture, .pressure, .quickLook, .directTouch, .changeMode:
+          print("\(f) \(String(describing: e.type).padding(toLength: 9, withPad: " ", startingAt: 0)) phase=\(e.phase.rawValue) dX=\(e.deltaX) dY=\(e.deltaY) magnification=\(e.type == .magnify ? e.magnification : 0)")
+        default:
+          print("\(f) type \(e.type.rawValue) (cg \(type.rawValue))")
+        }
+      }
+      return Unmanaged.passUnretained(cg)
+    }, userInfo: nil)
+  else { fail("couldn't create the event tap") }
+  CFRunLoopAddSource(CFRunLoopGetMain(), CFMachPortCreateRunLoopSource(nil, tap, 0), .commonModes)
+  CGEvent.tapEnable(tap: tap, enable: true)
+  RunLoop.main.run()
+
 default:
-  fail("unknown command \(command). Commands: read, watch, record")
+  fail("unknown command \(command). Commands: read, watch, record, gestures")
+}
+
+/// State for the gestures spike's C callback, which can't capture context.
+enum GestureSpike {
+  static let noisy: Set<NSEvent.EventType> = [.mouseMoved, .keyDown, .keyUp, .flagsChanged, .leftMouseDragged,
+                                              .rightMouseDragged, .otherMouseDragged, .cursorUpdate, .mouseEntered, .mouseExited]
+  static var lastScroll = Date.distantPast
+  static var dockEvents = 0
+  static var lastFingers = -1
+  static var lastX: CGFloat = 0, lastY: CGFloat = 0
 }

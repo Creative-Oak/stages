@@ -3,6 +3,7 @@ import Observation
 import os
 import StageReader
 import StageStore
+import Switcher
 import WindowSource
 
 @Observable
@@ -127,6 +128,68 @@ final class AppModel {
 
   func pokePoller() { poller.poke() }
 
+  // MARK: Switching
+
+  /// Set when the last switch didn't bring its stage to the centre (shown in the popover).
+  private(set) var switchProblem: String?
+
+  /// The committed centre stage, ignoring any provisional guess.
+  private var committedCentre: UUID? { stages.first { $0.stage.position == .centre }?.id }
+
+  var candidates: [Candidate] {
+    stages.map { s in
+      Candidate(id: s.id, name: s.record.name, apps: s.stage.owners, titles: s.windowTitles,
+                position: Candidate.Position(s.stage.position), order: s.stage.order, slot: s.record.slot,
+                lastActive: s.record.lastActive, createdAt: s.record.createdAt)
+    }
+  }
+
+  /// Next/previous in the stable cycle (slots first, then by age).
+  func step(_ by: Int) {
+    guard let target = SwitcherOrder.neighbour(of: current?.id, in: candidates, step: by) else { return }
+    switchTo(target.id)
+  }
+
+  /// Raise the stage's most recent window, then check the next snapshots for the stage in the
+  /// centre; retry once, then report.
+  func switchTo(_ id: UUID) {
+    guard let stage = stages.first(where: { $0.id == id }), let window = stage.stage.windows.min(by: { $0.z < $1.z }) else { return }
+    guard committedCentre != id else { return }
+    provisionalCurrent = id
+    poller.poke()
+    Task { [weak self] in
+      guard let self else { return }
+      for attempt in 1...2 {
+        let outcome = StageActivator.raise(window)
+        switch outcome {
+        case .notTrusted:
+          self.switchProblem = "Switching needs Accessibility permission."
+          return
+        case let .failed(why):
+          Self.log.notice("switch: attempt \(attempt) failed: \(why, privacy: .public)")
+        case .raised, .appOnly:
+          if await self.waitForCentre(id, timeout: .milliseconds(1500)) {
+            self.switchProblem = nil
+            Self.log.notice("switch: reached centre on attempt \(attempt) (\(outcome == .raised ? "window raised" : "app only", privacy: .public))")
+            return
+          }
+          Self.log.notice("switch: not in centre after attempt \(attempt)")
+        }
+      }
+      self.switchProblem = "Couldn't bring \(stage.title) to the centre."
+      NSSound.beep()
+    }
+  }
+
+  private func waitForCentre(_ id: UUID, timeout: Duration) async -> Bool {
+    let deadline = ContinuousClock.now + timeout
+    while ContinuousClock.now < deadline {
+      if committedCentre == id { return true }
+      try? await Task.sleep(for: .milliseconds(100))
+    }
+    return committedCentre == id
+  }
+
   func copyDiagnostics() {
     guard let snapshot, let data = try? Fixture.encoder().encode(snapshot),
           let text = String(data: data, encoding: .utf8) else { return }
@@ -166,5 +229,50 @@ extension IdentifiedStage {
       guard seen.insert(w.pid).inserted else { return nil }
       return NSRunningApplication(processIdentifier: w.pid)?.icon
     }
+  }
+}
+
+extension Candidate.Position {
+  init(_ p: Stage.Position) {
+    switch p {
+    case .centre: self = .centre
+    case .strip: self = .strip
+    case .overflow: self = .overflow
+    }
+  }
+}
+
+/// The switcher's keyboard settings (UserDefaults).
+enum ShortcutSettings {
+  enum Modifier: String, CaseIterable {
+    case option, control, command
+
+    var flag: CGEventFlags {
+      switch self {
+      case .option: .maskAlternate
+      case .control: .maskControl
+      case .command: .maskCommand
+      }
+    }
+
+    var label: String {
+      switch self {
+      case .option: "⌥⇥"
+      case .control: "⌃⇥"
+      case .command: "⌘⇥ (replaces the app switcher)"
+      }
+    }
+  }
+
+  static let modifierKey = "switcherModifier"
+  static let arrowsKey = "arrowsEnabled"
+
+  static var modifier: Modifier {
+    UserDefaults.standard.string(forKey: modifierKey).flatMap(Modifier.init) ?? .option
+  }
+
+  /// ⌃⌥←/→ (and ↑/↓) for previous/next stage.
+  static var arrowsEnabled: Bool {
+    UserDefaults.standard.object(forKey: arrowsKey) as? Bool ?? true
   }
 }

@@ -8,6 +8,7 @@ let package = Package(
     .library(name: "StageReader", targets: ["StageReader"]),
     .library(name: "WindowSource", targets: ["WindowSource"]),
     .library(name: "StageStore", targets: ["StageStore"]),
+    .library(name: "Switcher", targets: ["Switcher"]),
     .executable(name: "stagesctl", targets: ["stagesctl"]),
   ],
   targets: [
@@ -17,6 +18,8 @@ let package = Package(
     .target(name: "WindowSource", dependencies: ["StageReader"]),
     // Stage records (name, ink, slot) matched to snapshots, persisted as JSON.
     .target(name: "StageStore", dependencies: ["StageReader"]),
+    // Switcher logic: MRU and cycle order, filtering, the hold-modifier session. Pure.
+    .target(name: "Switcher"),
     // Debug CLI: record fixtures, read live or recorded captures, watch committed snapshots.
     .executableTarget(
       name: "stagesctl", dependencies: ["StageReader", "WindowSource"],
@@ -28,5 +31,6 @@ let package = Package(
       resources: [.copy("Fixtures")]
     ),
     .testTarget(name: "StageStoreTests", dependencies: ["StageStore", "StageReader"]),
+    .testTarget(name: "SwitcherTests", dependencies: ["Switcher"]),
   ]
 )

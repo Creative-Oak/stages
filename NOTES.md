@@ -51,6 +51,15 @@ Machine: MacBook, single 1470×956 display, macOS 27.2 (26B123), Xcode 27.2 (fro
 | `GloballyEnabled` is readable from a non-sandboxed process via `CFPreferencesCopyAppValue`. | verified 2026-11-03 |
 | An ad-hoc signed app's designated requirement is its cdhash (`cdhash H"2894…"`), so each rebuild is a different app to TCC. Signed with the local identity it is `identifier "dk.creativeoak.stages" and certificate root = H"6b8d…"`, unchanged across rebuilds. | requirement: verified 2026-11-03 (`codesign -d -r-` before/after two rebuilds). Grant surviving a rebuild: verified 2026-11-03 (rebuilt, relaunched, read 4 stages with no prompt) |
 
+## Switching and gestures (M3)
+
+| Behaviour | Status |
+|---|---|
+| Switching = make the stage's app frontmost (`AXFrontmost`) and `AXRaise` its most recent window, matched by title (frame breaks ties for centre windows; strip windows are scaled in CG but not in AX). Then wait up to 1.5 s for a committed snapshot with that stage in the centre; retry once; report. | built 2026-11-04; **to verify live**, including overflow stages and pooled ones |
+| Next/previous (⌃⌥ arrows) follow a fixed cycle (slots, then age). Stage Manager reorders the strip after each switch, so cycling by strip position would ping-pong. | design 2026-11-04 |
+| Swipe spike: a listen-only `CGEventTap` (Accessibility) receives CG type 29 (gesture) events for all trackpad touches, and `NSEvent.allTouches()` on them gives finger count and normalized positions (public API). 3-finger left: x 0.74→0.39; right: 0.43→0.73; 4-finger up: y 0.35→0.66; 4-finger right: x 0.46→0.65. | verified 2026-11-04 (`stagesctl gestures`, Magnus's swipes) |
+| The same swipes also produce CG type 30 events, the Dock's gesture events (Spaces, full-screen apps, Mission Control). AppKit can't convert them and their fields are undocumented; suppressing or parsing them would be SPI. So a Stages swipe and the system's swipe both fire unless the system gesture is turned off (Trackpad → More Gestures) or uses the other finger count. | verified 2026-11-04 |
+
 ## Performance
 
 - 2026-11-03, release build of `stagesctl watch`: 0.84 % of one core over the first 30 s (fast

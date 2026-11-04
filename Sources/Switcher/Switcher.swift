@@ -1,0 +1,108 @@
+import Foundation
+
+/// One stage as the switcher sees it. Built by the app from an identified stage.
+public struct Candidate: Hashable, Identifiable, Sendable {
+  public enum Position: Int, Comparable, Sendable {
+    case centre, strip, overflow
+    public static func < (a: Position, b: Position) -> Bool { a.rawValue < b.rawValue }
+  }
+
+  public var id: UUID
+  public var name: String?
+  /// Distinct apps, front-to-back.
+  public var apps: [String]
+  /// Window titles, front-to-back.
+  public var titles: [String]
+  public var position: Position
+  /// Order within its position (strip top-to-bottom, overflow order).
+  public var order: Int
+  public var slot: Int?
+  public var lastActive: Date?
+  public var createdAt: Date
+
+  public init(id: UUID, name: String?, apps: [String], titles: [String], position: Position, order: Int,
+              slot: Int? = nil, lastActive: Date? = nil, createdAt: Date) {
+    self.id = id; self.name = name; self.apps = apps; self.titles = titles; self.position = position
+    self.order = order; self.slot = slot; self.lastActive = lastActive; self.createdAt = createdAt
+  }
+
+  /// Does every word of the query start a word of the name, an app or a title?
+  public func matches(_ query: String) -> Bool {
+    let words = Self.words(query)
+    guard !words.isEmpty else { return true }
+    let haystack = Set(([name].compactMap { $0 } + apps + titles).flatMap(Self.words))
+    return words.allSatisfy { w in haystack.contains { $0.hasPrefix(w) } }
+  }
+
+  static func words(_ s: String) -> [String] {
+    s.lowercased().split { !$0.isLetter && !$0.isNumber }.map(String.init)
+  }
+}
+
+public enum SwitcherOrder {
+  /// Most recently used first: the centre stage, then by last time in the centre, then stages
+  /// never seen in the centre in their on-screen order.
+  public static func mru(_ c: [Candidate]) -> [Candidate] {
+    c.sorted { a, b in
+      if (a.position == .centre) != (b.position == .centre) { return a.position == .centre }
+      switch (a.lastActive, b.lastActive) {
+      case let (x?, y?) where x != y: return x > y
+      case (_?, nil): return true
+      case (nil, _?): return false
+      default: return (a.position, a.order) < (b.position, b.order)
+      }
+    }
+  }
+
+  /// A stable cycle for next/previous: slots 1–9 first, then the rest by age. Stage Manager
+  /// reorders the strip on every switch, so cycling by strip position would ping-pong between
+  /// two stages.
+  public static func cycle(_ c: [Candidate]) -> [Candidate] {
+    c.sorted { a, b in
+      switch (a.slot, b.slot) {
+      case let (x?, y?): return x < y
+      case (_?, nil): return true
+      case (nil, _?): return false
+      default: return a.createdAt != b.createdAt ? a.createdAt < b.createdAt : a.id.uuidString < b.id.uuidString
+      }
+    }
+  }
+
+  /// The stage `step` places from `current` in the cycle (wrapping); nil with fewer than 2.
+  public static func neighbour(of current: UUID?, in c: [Candidate], step: Int) -> Candidate? {
+    let ring = cycle(c)
+    guard ring.count >= 2 else { return nil }
+    guard let i = ring.firstIndex(where: { $0.id == current }) else { return ring[step > 0 ? 0 : ring.count - 1] }
+    return ring[((i + step) % ring.count + ring.count) % ring.count]
+  }
+}
+
+/// A hold-modifier switching session: open with Tab, step, type to filter, release to switch.
+public struct SwitcherSession: Sendable {
+  public private(set) var all: [Candidate]
+  public private(set) var query = ""
+  public private(set) var selection = 0
+
+  /// Opens on the previous stage (index 1), like ⌘⇥ does for apps.
+  public init(candidates: [Candidate]) {
+    all = SwitcherOrder.mru(candidates)
+    selection = all.count > 1 ? 1 : 0
+  }
+
+  public var visible: [Candidate] { all.filter { $0.matches(query) } }
+  public var selected: Candidate? { visible.indices.contains(selection) ? visible[selection] : nil }
+
+  public mutating func step(_ by: Int) {
+    let n = visible.count
+    guard n > 0 else { return }
+    selection = ((selection + by) % n + n) % n
+  }
+
+  public mutating func type(_ s: String) { query += s; selection = 0 }
+
+  public mutating func backspace() {
+    guard !query.isEmpty else { return }
+    query.removeLast()
+    selection = query.isEmpty && visible.count > 1 ? 1 : 0
+  }
+}
