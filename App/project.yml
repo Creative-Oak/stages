@@ -51,7 +51,7 @@ targets:
         LSMinimumSystemVersion: "26.0"
         NSHumanReadableCopyright: "Magnus Høholt Kaspersen. AGPL-3.0."
         # Sparkle: the newest release's appcast.xml, attached to every GitHub release.
-        SUFeedURL: https://github.com/Magniswerfer/stage-pro-for-mac/releases/latest/download/appcast.xml
+        SUFeedURL: https://github.com/Creative-Oak/stages/releases/latest/download/appcast.xml
         SUPublicEDKey: ONBQKOPZlFnSYHTzi5vVqR9dkQBc8kdSxZicqHhgybw=
         SUEnableAutomaticChecks: true
         SUAutomaticallyUpdate: true

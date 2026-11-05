@@ -17,7 +17,7 @@ VERSION=${2:?usage: release.sh build|release|publish VERSION}
 TEAM_ID=${TEAM_ID:-493257NQK3}
 NOTARY_PROFILE=${NOTARY_PROFILE:-stages-notary}
 SPARKLE_ACCOUNT=stages
-REPO=Magniswerfer/stage-pro-for-mac
+REPO=Creative-Oak/stages
 
 cd "$(dirname "$0")/.."
 OUT=build/release
