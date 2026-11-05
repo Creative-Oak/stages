@@ -13,11 +13,22 @@ struct NativeSwitcherView: View {
   let model: AppModel
   /// The in-stage switcher: items are this stage's windows (icon = the app's, no slot keys).
   var windows: [UUID: StageWindow]? = nil
+  /// Icons per row before wrapping; `perRow(on:)` fits the row to the display.
+  var perRow = 11
+  /// The display the switcher is on. Stages on another display (when displays have separate
+  /// Spaces, each has its own Stage Manager) get a display mark and the display's name.
+  var displayID: UInt32? = nil
 
   static let iconSize: CGFloat = 68
   static let itemWidth: CGFloat = 84
   static let spacing: CGFloat = 2
-  static let perRow = 11
+
+  /// As many icons as fit in 75% of the display's width, counting the panel's padding.
+  static func perRow(on screen: NSScreen?) -> Int {
+    guard let screen else { return 11 }
+    let chrome: CGFloat = 2 * 10 + 2 * 20
+    return max(1, Int((screen.visibleFrame.width * 0.75 - chrome + spacing) / (itemWidth + spacing)))
+  }
 
   /// The square the icons sit in; (itemWidth − iconBox) / 2 equals the vertical padding, so the
   /// highlight has the same margin on every side.
@@ -28,14 +39,14 @@ struct NativeSwitcherView: View {
 
   /// The icon row's width: the text below never makes the panel wider than this.
   private var rowWidth: CGFloat {
-    let n = CGFloat(min(max(items.count, 1), Self.perRow))
+    let n = CGFloat(min(max(items.count, 1), perRow))
     return n * Self.itemWidth + (n - 1) * Self.spacing
   }
 
   var body: some View {
     let current = items.first { $0.id == selected }
     VStack(spacing: 6) {
-      LazyVGrid(columns: Array(repeating: GridItem(.fixed(Self.itemWidth), spacing: Self.spacing), count: min(max(items.count, 1), Self.perRow)),
+      LazyVGrid(columns: Array(repeating: GridItem(.fixed(Self.itemWidth), spacing: Self.spacing), count: min(max(items.count, 1), perRow)),
                 spacing: 4) {
         ForEach(items) { c in item(c, isSelected: c.id == selected) }
       }
@@ -59,12 +70,24 @@ struct NativeSwitcherView: View {
 
   private func stage(_ c: Candidate) -> IdentifiedStage? { model.stages.first { $0.id == c.id } }
 
+  /// The other display a stage is on, or nil when it's on the switcher's own display.
+  private func otherDisplay(_ c: Candidate) -> UInt32? {
+    guard windows == nil, let displayID, let d = stage(c)?.stage.displayID, d != displayID else { return nil }
+    return d
+  }
+
+  private func displayName(_ id: UInt32) -> String {
+    NSScreen.screens.first { ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == id }?
+      .localizedName ?? "another display"
+  }
+
   private func title(_ c: Candidate) -> String { c.name ?? stage(c)?.appsTitle ?? c.apps.joined(separator: " + ") }
 
   private func subtitle(_ c: Candidate?) -> String {
     guard let c else { return " " }
     if windows != nil { return c.titles.first ?? " " }
-    let where_ = c.position == .overflow ? "In overflow" : c.position == .centre ? "On stage" : nil
+    let where_ = if let d = otherDisplay(c) { "On \(displayName(d))" + (c.position == .overflow ? ", in overflow" : "") }
+                 else { c.position == .overflow ? "In overflow" : c.position == .centre ? "On stage" : nil }
     return [where_, c.titles.first].compactMap { $0 }.joined(separator: " · ")
   }
 
@@ -104,6 +127,11 @@ struct NativeSwitcherView: View {
             .font(.system(size: 11, weight: .semibold, design: .rounded))
             .monospacedDigit()
             .foregroundStyle(isSelected ? .primary : .secondary)
+          if otherDisplay(c) != nil {
+            Image(systemName: "display")
+              .font(.system(size: 10, weight: .semibold))
+              .foregroundStyle(isSelected ? .primary : .secondary)
+          }
         }
       }
     }
@@ -119,6 +147,6 @@ struct NativeSwitcherView: View {
       }
     }
     .accessibilityElement(children: .ignore)
-    .accessibilityLabel("\(title(c)), slot \(c.slot ?? "none")")
+    .accessibilityLabel("\(title(c)), slot \(c.slot ?? "none")" + (otherDisplay(c).map { ", on \(displayName($0))" } ?? ""))
   }
 }

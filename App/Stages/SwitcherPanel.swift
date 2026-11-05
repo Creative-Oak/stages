@@ -74,7 +74,10 @@ struct SwitcherView: View {
 
   var body: some View {
     if let s = state.session {
-      NativeSwitcherView(items: s.visible, selected: s.selected?.id, model: model, windows: state.windows)
+      let screen = NSScreen.main   // where position() puts the panel
+      NativeSwitcherView(items: s.visible, selected: s.selected?.id, model: model, windows: state.windows,
+                         perRow: NativeSwitcherView.perRow(on: screen),
+                         displayID: (screen?.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value)
     } else {
       // Built once at launch (prewarm) before any session exists.
       NativeSwitcherView(items: [], selected: nil, model: model)
