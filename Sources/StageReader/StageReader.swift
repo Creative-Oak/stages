@@ -310,10 +310,18 @@ public enum StageReader {
       func inBand(_ r: Rect) -> Bool { r.maxX <= d.frame.minX + C.stripBandRight }
       let layerZero = here.filter { overlayOf[$0.id]!.layer == C.centreLayer }
       let demoted = layerZero.filter { inBand(overlayOf[$0.id]!.bounds) }
+      // A centre window is on screen. An app that hides a window on close (Settings windows,
+      // menu-bar utilities) keeps it listed, offscreen, and Stage Manager can leave its centre
+      // overlay behind: the window then joined whatever stage was in the centre.
+      let stale = layerZero.filter { !inBand(overlayOf[$0.id]!.bounds) && !$0.onscreen }
+      for w in stale {
+        diag.rejected.append(.init(windowID: w.id, owner: w.owner, title: w.name, bounds: w.bounds,
+                                   reason: "offscreen under a centre overlay (hidden window, stale overlay)"))
+      }
       if !demoted.isEmpty {
         diag.classification.append("\(demoted.count) layer-0 overlay(s) in the strip band read as thumbnails")
       }
-      let centre = (layerZero.filter { !inBand(overlayOf[$0.id]!.bounds) } + bare)
+      let centre = (layerZero.filter { !inBand(overlayOf[$0.id]!.bounds) && $0.onscreen } + bare)
         .filter { !tileIDs.contains($0.id) }   // a tile's window is in the strip, whatever its overlay says
         .sorted { $0.z < $1.z }
       if !centre.isEmpty {

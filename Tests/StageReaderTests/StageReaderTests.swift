@@ -223,6 +223,19 @@ import Testing
     #expect(s.stages(.centre).first?.windows.first { $0.id == ghostty }?.overlayID == nil)
   }
 
+  /// Vorssaint, 2026-11-05: its Settings window, closed (ordered out, still listed, offscreen),
+  /// kept a layer-0 overlay at its spot and joined Claude's centre stage.
+  @Test func hiddenWindowUnderStaleCentreOverlayIsNotCentre() {
+    var scene = Scene.singles()
+    let settings = scene.stageWindow("Vorssaint", "Vorssaint Settings", Rect(x: 733, y: 290, w: 772, h: 890),
+                                     strip: false, onscreen: false)
+    let s = StageReader.read(scene.capture)
+    #expect(s.stages(.centre).count == 1)
+    #expect(s.stages(.centre)[0].owners == ["Claude"])
+    #expect(!s.stages.contains { $0.windowIDs.contains(settings) })
+    #expect(s.diagnostics.rejected.contains { $0.windowID == settings })
+  }
+
   @Test func offscreenLeftoverOverlaysDoNotLowerConfidence() {
     var scene = Scene.singles(stripX: 8)
     scene.overlay(Rect(x: 381, y: 221, w: 1454, h: 865), layer: 0, onscreen: false)
