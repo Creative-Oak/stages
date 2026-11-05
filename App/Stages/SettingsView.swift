@@ -1,5 +1,6 @@
 import AppKit
 import ServiceManagement
+import Sparkle
 import SwiftUI
 
 struct SettingsView: View {
@@ -65,6 +66,7 @@ struct SettingsView: View {
       } header: {
         Theme.label("Trackpad")
       }
+      if Updater.enabled { UpdatesSection() }
       Section {
         LabeledContent("Accessibility") {
           if trusted {
@@ -85,6 +87,30 @@ struct SettingsView: View {
     .formStyle(.grouped)
     .frame(width: 460)
     .onReceive(timer) { _ in trusted = Permissions.accessibility }
+  }
+}
+
+/// Sparkle's two switches, read straight from (and written to) the updater.
+private struct UpdatesSection: View {
+  private let updater = Updater.shared.updater
+  @State private var checks = Updater.shared.updater.automaticallyChecksForUpdates
+  @State private var installs = Updater.shared.updater.automaticallyDownloadsUpdates
+
+  var body: some View {
+    Section {
+      Toggle("Check for updates automatically", isOn: Binding(
+        get: { checks }, set: { checks = $0; updater.automaticallyChecksForUpdates = $0 }))
+      Toggle("Install updates automatically", isOn: Binding(
+        get: { installs }, set: { installs = $0; updater.automaticallyDownloadsUpdates = $0 }))
+        .disabled(!checks)
+      LabeledContent("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?")") {
+        Button("Check Now…") { Updater.shared.checkForUpdates() }
+      }
+      Text("Updates come from the project's GitHub releases, signed and notarized. Stages relaunches by itself after installing one.")
+        .font(.callout).foregroundStyle(.secondary)
+    } header: {
+      Theme.label("Updates")
+    }
   }
 }
 

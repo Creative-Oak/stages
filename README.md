@@ -27,21 +27,34 @@ make run       # generate the Xcode project, build Stages.app, (re)launch it
 ```
 
 ```bash
-make install   # build, copy to ~/Applications/Stages.app and run it from there
+make install   # Developer ID build, copied to ~/Applications/Stages.app and run from there
 ```
 
 The installed copy turns on Open at login the first time it runs (Settings… → General to turn
 it off).
 
+### Releases and updates
+
+Installed copies update themselves with [Sparkle](https://sparkle-project.org): every 6 hours they
+read `appcast.xml` from the latest GitHub release, and install a newer build in the background
+(Stages relaunches by itself). Settings → Updates turns that off or checks now. Debug builds
+don't check.
+
 ```bash
-make release TEAM_ID=ABCDE12345   # Developer ID build: sign, notarize, staple → build/release/Stages.zip
+make publish VERSION=0.2.0   # sign, notarize, staple, appcast → tag v0.2.0 + GitHub release
 ```
 
-`make release` needs an Apple Developer membership, a "Developer ID Application" certificate in
-the keychain (Xcode → Settings → Accounts → Manage Certificates → +), and a notarytool profile:
-`xcrun notarytool store-credentials stages-notary --apple-id <you> --team-id <TEAM> --password <app-specific password>`.
-A Developer ID build is signed by a different certificate than the local one, so macOS asks for
-Screen Recording and Accessibility once more.
+(`make release VERSION=…` does the same without tagging or uploading.) It needs, once per Mac:
+
+- the "Developer ID Application" certificate in the keychain (Xcode → Settings → Accounts →
+  Manage Certificates);
+- a notarytool profile: `xcrun notarytool store-credentials stages-notary --apple-id <you> --team-id 493257NQK3 --password <app-specific password>`;
+- the Sparkle EdDSA private key in the keychain, account `stages`. It was made with
+  `generate_keys --account stages` (in `build/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/`);
+  move it between Macs with `generate_keys --account stages -x key.txt` / `-f key.txt`. Lose it
+  and existing installs can't verify new updates.
+
+`CFBundleVersion` is the commit count, so builds only go up.
 
 The app needs its own Screen Recording grant (separate from your terminal's).
 
@@ -88,8 +101,8 @@ title, documentPath}]}`. Append-only, local only: data for "used with this Assem
 
 ### Signing
 
-Builds are signed with a local self-signed identity, "Stages Local Signing" (no Apple account
-involved; Developer ID comes later). That makes the designated requirement certificate-based,
+Debug builds (`make run`) are signed with a local self-signed identity, "Stages Local Signing"
+(no Apple account involved); installed and released builds use Developer ID. That makes the designated requirement certificate-based,
 so macOS keeps Stages' Screen Recording and Accessibility grants across rebuilds. On a new Mac:
 
 ```bash
@@ -120,3 +133,7 @@ xcrun swift tools/probe.swift --ax      # original probe, plus WindowManager's A
 The terminal running these needs Screen Recording permission (window titles), and
 Accessibility for `--ax`. `record` redacts app window titles by default (`--keep-titles` to keep
 them), so fixtures can be committed without leaking what you were working on.
+
+## License
+
+[GNU AGPL v3.0](LICENSE). Sparkle is MIT-licensed.

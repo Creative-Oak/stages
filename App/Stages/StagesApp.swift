@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     switcher.prewarm()
     hotkeys = HotkeyTap(model: model, panel: switcher)
     hotkeys?.start()
+    Updater.shared.start()
   }
 
   /// Open at login is on by default, once, for an installed copy (not a build folder). Turning

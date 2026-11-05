@@ -7,6 +7,10 @@ options:
 packages:
   StagesKit:
     path: ..
+  # Auto-updates from GitHub Releases (appcast + EdDSA-signed, notarized zips; `make release`).
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.9.0"
 targets:
   StagesApp:
     type: application
@@ -31,6 +35,7 @@ targets:
         product: Commands
       - package: StagesKit
         product: ActivityLog
+      - package: Sparkle
     info:
       path: Stages/Info.plist
       properties:
@@ -44,7 +49,13 @@ targets:
           - CFBundleURLName: dk.creativeoak.stages
             CFBundleURLSchemes: [stages]
         LSMinimumSystemVersion: "26.0"
-        NSHumanReadableCopyright: "Magnus Høholt Kaspersen"
+        NSHumanReadableCopyright: "Magnus Høholt Kaspersen. AGPL-3.0."
+        # Sparkle: the newest release's appcast.xml, attached to every GitHub release.
+        SUFeedURL: https://github.com/Magniswerfer/stage-pro-for-mac/releases/latest/download/appcast.xml
+        SUPublicEDKey: ONBQKOPZlFnSYHTzi5vVqR9dkQBc8kdSxZicqHhgybw=
+        SUEnableAutomaticChecks: true
+        SUAutomaticallyUpdate: true
+        SUScheduledCheckInterval: 21600
     settings:
       base:
         PRODUCT_NAME: Stages

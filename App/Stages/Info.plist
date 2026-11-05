@@ -38,6 +38,16 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
-	<string>Magnus Høholt Kaspersen</string>
+	<string>Magnus Høholt Kaspersen. AGPL-3.0.</string>
+	<key>SUAutomaticallyUpdate</key>
+	<true/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://github.com/Magniswerfer/stage-pro-for-mac/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>ONBQKOPZlFnSYHTzi5vVqR9dkQBc8kdSxZicqHhgybw=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>21600</integer>
 </dict>
 </plist>
