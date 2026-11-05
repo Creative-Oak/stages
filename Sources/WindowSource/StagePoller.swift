@@ -1,4 +1,5 @@
 import AppKit
+import os
 import StageReader
 
 /// Polls a `WindowSource`, runs the reader, and publishes stable snapshots.
@@ -100,6 +101,14 @@ public final class StagePoller {
       unsettledSince = .now; readsSinceChange = 1
     }
 
+    let next = nextDelay()
+    Self.log.debug("tick: next in \(next, privacy: .public), settling \(self.gate.isSettling)")
+    return next
+  }
+
+  private static let log = Logger(subsystem: "dk.creativeoak.stages", category: "poller")
+
+  private func nextDelay() -> Duration {
     let quiet = ContinuousClock.now - lastChange
     if let lastPoke, ContinuousClock.now - lastPoke < pacing.burstFor { return pacing.burst }
     if gate.isSettling || quiet < pacing.idleAfter { return pacing.fast }
@@ -122,10 +131,15 @@ public final class StagePoller {
     }
   }
 
-  /// Cheap change detector over the raw list (ids, layers, bounds, onscreen).
+  /// Cheap structural change detector: which normal (layer 0) windows exist and which are on
+  /// screen. That's what changes when a stage forms, splits or goes. Titles and geometry are left
+  /// out: apps retitle windows constantly (terminal spinners, streaming chat, page loads) and
+  /// windows move and resize while you work, and either kept polling at the fast rate for as long
+  /// as you used the Mac. Switches are covered by the activation poke; a moved or retitled window
+  /// still shows up on the next idle read, and the gate polls fast until that settles.
   static func rawSignature(_ c: WindowCapture) -> String {
     var h = Hasher()
-    for w in c.windows { h.combine(w.id); h.combine(w.layer); h.combine(w.bounds); h.combine(w.onscreen); h.combine(w.name) }
+    for w in c.windows where w.layer == 0 { h.combine(w.id); h.combine(w.onscreen) }
     h.combine(c.stageManagerEnabled); h.combine(c.screenRecordingGranted)
     return String(h.finalize())
   }

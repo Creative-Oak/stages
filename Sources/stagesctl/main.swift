@@ -96,6 +96,26 @@ func redact(_ frames: [WindowCapture]) -> [WindowCapture] {
 }
 
 switch command {
+case "bench":
+  // Per-read cost of the poll, split up: own CPU (user + sys), so waiting on WindowServer or
+  // WindowManager doesn't count.
+  func cpuMS() -> Double {
+    var u = rusage(); getrusage(RUSAGE_SELF, &u)
+    return Double(u.ru_utime.tv_sec + u.ru_stime.tv_sec) * 1000 + Double(u.ru_utime.tv_usec + u.ru_stime.tv_usec) / 1000
+  }
+  func bench(_ name: String, _ n: Int = 40, _ f: () -> Void) {
+    let c0 = cpuMS(); let t0 = ContinuousClock.now
+    for _ in 0..<n { f() }
+    let wall = (ContinuousClock.now - t0) / n
+    print(name.padding(toLength: 28, withPad: " ", startingAt: 0), String(format: "cpu %.2f ms", (cpuMS() - c0) / Double(n)), "wall \(wall)")
+  }
+  let noTiles = LiveWindowSource(readTiles: false), withTiles = LiveWindowSource()
+  let cap = withTiles.capture()
+  bench("capture, no tiles") { _ = noTiles.capture() }
+  bench("strip tiles (AX)") { _ = StripTiles.read() }
+  bench("capture + tiles") { _ = withTiles.capture() }
+  bench("StageReader.read") { _ = StageReader.read(cap) }
+
 case "read":
   let asJSON = flag("--json")
   let frameIndex = option("--frame").flatMap(Int.init)

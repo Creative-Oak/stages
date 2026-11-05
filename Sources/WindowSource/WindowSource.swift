@@ -33,7 +33,8 @@ public struct LiveWindowSource: WindowSource {
 
   public func capture() -> WindowCapture {
     let raw = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] ?? []
-    var bundleIDs: [Int32: String?] = [:]
+    var bundleIDs = Self.bundleIDCache.withLock { $0 }
+    var seen = Set<Int32>()
     var windows: [RawWindow] = []
     windows.reserveCapacity(raw.count)
     for (z, d) in raw.enumerated() {
@@ -41,6 +42,7 @@ public struct LiveWindowSource: WindowSource {
             let bd = d[kCGWindowBounds as String] as? NSDictionary,
             let r = CGRect(dictionaryRepresentation: bd as CFDictionary) else { continue }
       let pid = Int32(d[kCGWindowOwnerPID as String] as? Int ?? 0)
+      seen.insert(pid)
       if bundleIDs[pid] == nil {
         bundleIDs[pid] = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier
       }
@@ -56,6 +58,10 @@ public struct LiveWindowSource: WindowSource {
         onscreen: d[kCGWindowIsOnscreen as String] as? Bool ?? false))
     }
 
+    // Keep only live pids, so a reused pid is looked up again.
+    let live = bundleIDs.filter { seen.contains($0.key) }
+    Self.bundleIDCache.withLock { $0 = live }
+
     let domain = StageManagerConstants.defaultsDomain as CFString
     CFPreferencesAppSynchronize(domain)
     func pref(_ key: String) -> CFPropertyList? { CFPreferencesCopyAppValue(key as CFString, domain) }
@@ -68,8 +74,36 @@ public struct LiveWindowSource: WindowSource {
       stripAutoHide: (pref(StageManagerConstants.autoHideKey) as? NSNumber)?.boolValue,
       displays: Self.displays(),
       windows: windows,
-      stripTiles: readTiles ? StripTiles.read() : nil)
+      stripTiles: readTiles ? Self.tiles(for: windows) : nil)
   }
+
+  /// The strip tiles, read from WindowManager's AX tree only when the window structure (layer 0
+  /// ids and onscreen) changed lately: tiles only regroup when windows come, go or move on or off
+  /// screen. After a change it's read until three reads in a row saw the same structure (AX can
+  /// lag the window list), then reused, refreshed at least every 10 s.
+  private static func tiles(for windows: [RawWindow]) -> [StripTile]? {
+    var h = Hasher()
+    for w in windows where w.layer == 0 { h.combine(w.id); h.combine(w.onscreen) }
+    let sig = h.finalize()
+    let now = ContinuousClock.now
+    if let c = tileCache.withLock({ $0 }), c.signature == sig, c.sameReads >= 3, now - c.readAt < .seconds(10) {
+      return c.tiles
+    }
+    let tiles = StripTiles.read()
+    tileCache.withLock { c in
+      let same = c?.signature == sig ? (c?.sameReads ?? 0) + 1 : 1
+      // An unreadable tree (nil) is never reused.
+      c = tiles == nil ? nil : TileCache(signature: sig, tiles: tiles, readAt: now, sameReads: same)
+    }
+    return tiles
+  }
+
+  private struct TileCache { var signature: Int; var tiles: [StripTile]?; var readAt: ContinuousClock.Instant; var sameReads: Int }
+  private static let tileCache = OSAllocatedUnfairLock<TileCache?>(initialState: nil)
+
+  /// pid → bundle ID across polls. `NSRunningApplication.bundleIdentifier` is a LaunchServices
+  /// round trip per process, the biggest cost of a poll when made every time.
+  private static let bundleIDCache = OSAllocatedUnfairLock<[Int32: String?]>(initialState: [:])
 
   /// `CGPreflightScreenCaptureAccess()` asks TCC each time (~7.6 ms measured 2026-11-04), and
   /// this runs on every poll; the answer is reused for 2 s (a grant is noticed within that).
@@ -99,9 +133,7 @@ public struct LiveWindowSource: WindowSource {
 /// read-only, no pointer. Needs Accessibility; nil without it (the reader falls back to geometry).
 public enum StripTiles {
   public static func read() -> [StripTile]? {
-    guard AXIsProcessTrusted(),
-          let pid = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.WindowManager").first?.processIdentifier
-    else { return nil }
+    guard AXIsProcessTrusted(), let pid = windowManagerPID() else { return nil }
     let app = AXUIElementCreateApplication(pid)
     AXUIElementSetMessagingTimeout(app, 0.15)
     var lists: [AXUIElement] = []
@@ -110,8 +142,9 @@ public enum StripTiles {
       if string(e, "AXIdentifier") == "sm.strip" { lists.append(e); return }
       for c in children(e) { walk(c, depth: depth + 1) }
     }
-    // An unreadable tree (WindowManager busy, restarting) is "unknown", not "no tiles".
-    guard !children(app).isEmpty else { return nil }
+    // An unreadable tree (WindowManager busy, restarting) is "unknown", not "no tiles". Look its
+    // pid up again next time, in case it restarted.
+    guard !children(app).isEmpty else { cachedPID.withLock { $0 = nil }; return nil }
     walk(app, depth: 0)
     var tiles: [StripTile] = []
     for list in lists {
@@ -124,6 +157,16 @@ public enum StripTiles {
       }
     }
     return tiles
+  }
+
+  private static let cachedPID = OSAllocatedUnfairLock<pid_t?>(initialState: nil)
+
+  /// WindowManager's pid, kept between polls (a LaunchServices query otherwise).
+  private static func windowManagerPID() -> pid_t? {
+    if let pid = cachedPID.withLock({ $0 }), kill(pid, 0) == 0 { return pid }
+    let pid = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.WindowManager").first?.processIdentifier
+    cachedPID.withLock { $0 = pid }
+    return pid
   }
 
   private static func children(_ e: AXUIElement) -> [AXUIElement] {
