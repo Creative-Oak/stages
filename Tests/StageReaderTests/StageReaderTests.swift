@@ -21,6 +21,20 @@ import Testing
     #expect(s.diagnostics.rejected.contains { $0.bounds == Rect(x: 0, y: 456, w: 500, h: 500) })
   }
 
+  /// Seen live 2026-11-12: Claude's hidden, untitled 800×600 window (offscreen) lined up with a
+  /// leftover layer-0 overlay from login (796×598, 3 pt off) and was read as a centre window, so
+  /// every stage switched to took it along: Safari "merged" with it and the switch beeped.
+  @Test func offscreenWindowOnStaleCentreOverlayIsNotCentre() {
+    var scene = Scene.singles(stripX: 8)
+    let ghost = scene.appWindow("Claude", "", Rect(x: 335, y: 195, w: 800, h: 600), onscreen: false)
+    scene.overlay(Rect(x: 332, y: 195, w: 796, h: 598), layer: 0, onscreen: false)
+
+    let s = StageReader.read(scene.capture)
+    #expect(s.stages(.centre).map(\.owners) == [["Claude"]])
+    #expect(!s.stages.flatMap(\.windowIDs).contains(ghost))
+    #expect(s.diagnostics.rejected.contains { $0.windowID == ghost })
+  }
+
   @Test func groupedStage() {
     var scene = Scene()
     scene.wmNoise()
