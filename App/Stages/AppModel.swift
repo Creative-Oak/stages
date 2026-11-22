@@ -18,6 +18,8 @@ final class AppModel {
   private(set) var sleeping: [StageRecord] = []
   /// After waking a stage: what happened (shown in the popover for a while).
   private(set) var wakeNote: String?
+  /// Saved stages couldn't be read at launch (shown in the popover until dismissed).
+  private(set) var dataNotice: String?
 
   @ObservationIgnored let store = StageStore()
   @ObservationIgnored private let poller = StagePoller()
@@ -31,7 +33,20 @@ final class AppModel {
 
   func start() {
     poller.onCommit = { [weak self] snapshot in self?.apply(snapshot) }
-    store.onEvent = { Self.log.notice("identity: \($0, privacy: .public)") }
+    store.onEvent = { event in
+      Self.log.notice("identity: \(event, privacy: .public)")
+      if event.hasPrefix("rejected snapshot") { ErrorReporting.breadcrumb("store rejected an implausible snapshot") }
+    }
+    store.onProblem = { ErrorReporting.report($0, $1) }
+    if let problem = store.loadProblem {
+      ErrorReporting.report(problem.message, problem.error)
+      dataNotice = store.setAsideURL.map {
+        "Stages couldn't read its saved stages and started fresh. The old file is kept as \($0.lastPathComponent) in ~/Library/Application Support/Stages."
+      } ?? "Stages couldn't read its saved stages, and won't save changes until it's relaunched."
+    }
+    activity.onError = { error in
+      Task { @MainActor in ErrorReporting.error("couldn't append to activity.jsonl", error) }
+    }
     activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
       forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
     ) { [weak self] note in
@@ -110,6 +125,8 @@ final class AppModel {
     }
   }
   @ObservationIgnored private var provisionalGeneration = 0
+  /// The last stage-reading state reported (nil = readable), so it's noted only on change.
+  @ObservationIgnored private var lastUnavailable: String?
 
   func stages(_ position: Stage.Position) -> [IdentifiedStage] {
     stages.filter { $0.stage.position == position }
@@ -135,6 +152,11 @@ final class AppModel {
       let am = sinceActivation.map { Int($0.components.seconds * 1000 + $0.components.attoseconds / 1_000_000_000_000_000) }
       Self.log.notice("settle: \(ms) ms over \(settle.reads) reads; since activation: \(am.map(String.init) ?? "–", privacy: .public) ms")
       activatedAt = nil
+    }
+    if snapshot.unavailable?.rawValue != lastUnavailable {
+      lastUnavailable = snapshot.unavailable?.rawValue
+      ErrorReporting.breadcrumb(snapshot.unavailable == nil ? "stage reading available" : "stage reading unavailable")
+      ErrorReporting.updateContext(readingUnavailable: lastUnavailable)
     }
     // Counts only: window titles stay out of the system log.
     if let reason = snapshot.unavailable {
@@ -193,6 +215,8 @@ final class AppModel {
   }
 
   func pokePoller() { poller.poke() }
+
+  func dismissDataNotice() { dataNotice = nil }
 
   // MARK: stages:// commands
 
@@ -308,7 +332,7 @@ final class AppModel {
     lastStateData = data
     let url = StageStore.defaultDirectory.appendingPathComponent("state.json")
     do { try data.write(to: url, options: .atomic) } catch {
-      Self.log.error("couldn't write state.json: \(error.localizedDescription, privacy: .public)")
+      ErrorReporting.error("couldn't write state.json", error)
     }
   }
 
@@ -524,6 +548,7 @@ final class AppModel {
     pendingTarget = id
     provisionalCurrent = id
     poller.poke()
+    ErrorReporting.breadcrumb("switch started")
     let started = ContinuousClock.now
     Task { [weak self] in
       guard let self else { return }
@@ -540,11 +565,13 @@ final class AppModel {
         Self.log.notice("switch: raise took \(Self.ms(ContinuousClock.now - started)) ms (attempt \(attempt))")
         switch outcome {
         case .notTrusted:
+          ErrorReporting.breadcrumb("switch: not trusted for Accessibility", level: .warning)
           self.pendingTarget = nil
           self.switchProblem = "Switching needs Accessibility permission."
           return
         case let .failed(why):
           Self.log.notice("switch: attempt \(attempt) failed: \(why, privacy: .public)")
+          ErrorReporting.breadcrumb("switch: raise failed", level: .warning)
         case .raised, .appOnly:
           switch await self.waitForCentre(id, from: [leaving, inFlight], pid: window.pid, timeout: .milliseconds(1500)) {
           case .reached:
@@ -560,6 +587,7 @@ final class AppModel {
           case .otherStageOfApp:
             // Same-titled windows: the raise picked another window of this app. Try another one now.
             wrongWindow = true
+            ErrorReporting.breadcrumb("switch: another stage of the same app came forward")
             Self.log.notice("switch: attempt \(attempt) brought another stage of the same app")
           case .timeout:
             Self.log.notice("switch: not in centre after attempt \(attempt)")
@@ -569,6 +597,7 @@ final class AppModel {
       guard self.switchGeneration == generation else { return }
       self.pendingTarget = nil
       self.switchProblem = "Couldn't bring \(stage.title) to the centre."
+      ErrorReporting.error("switch didn't bring the stage to the centre", level: .warning)
       NSSound.beep()
     }
   }

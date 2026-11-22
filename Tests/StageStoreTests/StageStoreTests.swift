@@ -87,6 +87,32 @@ private func tempDir() -> URL {
     #expect(r.id == id && r.name == "Lodestone" && r.ink == .violet && r.slot == "1")
   }
 
+  @Test func unreadableFileIsSetAsideNotOverwritten() throws {
+    let dir = tempDir()
+    defer { try? FileManager.default.removeItem(at: dir) }
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    let garbage = Data("{ not json".utf8)
+    try garbage.write(to: dir.appendingPathComponent("stages.json"))
+    let store = StageStore(directory: dir)
+    #expect(store.records.isEmpty)
+    #expect(store.loadProblem != nil)
+    #expect(!store.savingBlocked)
+    let aside = try #require(store.setAsideURL)
+    #expect(try Data(contentsOf: aside) == garbage)
+    // Saving afterwards writes a fresh stages.json next to the set-aside copy.
+    let id = store.reconcile(snapshot([stage([1])]))[0].id
+    store.rename(id, to: "Fresh")
+    #expect(StageStore(directory: dir).records[id]?.name == "Fresh")
+    #expect(try Data(contentsOf: aside) == garbage)
+  }
+
+  @Test func missingFileIsNotAProblem() {
+    let dir = tempDir()
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let store = StageStore(directory: dir)
+    #expect(store.loadProblem == nil && store.setAsideURL == nil)
+  }
+
   @Test func unavailableSnapshotChangesNothing() {
     let store = StageStore(directory: nil)
     _ = store.reconcile(snapshot([stage([1])]))

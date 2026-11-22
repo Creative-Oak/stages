@@ -11,6 +11,11 @@ packages:
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
     from: "2.9.0"
+  # Opt-in crash and error reports (ErrorReporting.swift). The pre-built static framework: no
+  # extra build time, and nothing nested to re-sign for notarization.
+  Sentry:
+    url: https://github.com/getsentry/sentry-cocoa
+    from: "9.35.0"
 targets:
   StagesApp:
     type: application
@@ -35,7 +40,11 @@ targets:
         product: Commands
       - package: StagesKit
         product: ActivityLog
+      - package: StagesKit
+        product: Reporting
       - package: Sparkle
+      - package: Sentry
+        product: Sentry
     info:
       path: Stages/Info.plist
       properties:
@@ -56,12 +65,17 @@ targets:
         SUEnableAutomaticChecks: true
         SUAutomaticallyUpdate: true
         SUScheduledCheckInterval: 21600
+        # Sentry DSN for opt-in error reports; empty = reporting not offered (see SENTRY_DSN).
+        SentryDSN: $(SENTRY_DSN)
     settings:
       base:
         PRODUCT_NAME: Stages
         PRODUCT_BUNDLE_IDENTIFIER: dk.creativeoak.stages
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
+        # The creative-oak/stages Sentry project's DSN (Settings → Client Keys). A DSN only lets
+        # a client send events, so it's fine in a public repo. tools/release.sh can override it.
+        SENTRY_DSN: ""
         SWIFT_VERSION: "6.0"
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
         # Not sandboxed: needs CGWindowList titles, AX and event taps.
@@ -83,6 +97,8 @@ targets:
           CODE_SIGN_IDENTITY: "Developer ID Application"
           ENABLE_HARDENED_RUNTIME: YES
           OTHER_CODE_SIGN_FLAGS: "--timestamp"
+          # dSYMs in the archive, for symbolicated crash reports (tools/release.sh uploads them).
+          DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
 schemes:
   Stages:
     build:

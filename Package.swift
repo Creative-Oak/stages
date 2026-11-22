@@ -11,6 +11,7 @@ let package = Package(
     .library(name: "Switcher", targets: ["Switcher"]),
     .library(name: "Commands", targets: ["Commands"]),
     .library(name: "ActivityLog", targets: ["ActivityLog"]),
+    .library(name: "Reporting", targets: ["Reporting"]),
     .executable(name: "stagesctl", targets: ["stagesctl"]),
   ],
   targets: [
@@ -26,6 +27,8 @@ let package = Package(
     .target(name: "Commands", dependencies: ["StageReader"]),
     // Append-only JSONL of centre-stage changes. Local only.
     .target(name: "ActivityLog"),
+    // What may go into an opt-in error report: path redaction, safe error summaries. Pure.
+    .target(name: "Reporting"),
     // Debug CLI: record fixtures, read live or recorded captures, watch committed snapshots.
     .executableTarget(
       name: "stagesctl", dependencies: ["StageReader", "WindowSource"],
@@ -40,5 +43,6 @@ let package = Package(
     .testTarget(name: "SwitcherTests", dependencies: ["Switcher"]),
     .testTarget(name: "CommandsTests", dependencies: ["Commands"]),
     .testTarget(name: "ActivityLogTests", dependencies: ["ActivityLog"]),
+    .testTarget(name: "ReportingTests", dependencies: ["Reporting"]),
   ]
 )

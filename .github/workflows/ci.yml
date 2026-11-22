@@ -1,0 +1,42 @@
+# Package tests and an unsigned Release build of the app, on every push and pull request.
+# Signing, notarization and publishing stay local (tools/release.sh): they need the Developer ID
+# certificate and the Sparkle key, which never leave the release Mac.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-build:
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select the newest Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+
+      - name: Package tests
+        run: xcodebuild test -scheme Stages-Package -destination 'platform=macOS,arch=arm64' -quiet
+
+      - name: Install XcodeGen
+        run: command -v xcodegen || brew install xcodegen
+
+      - name: Build the app (Release, unsigned)
+        run: |
+          cd App && xcodegen generate --quiet && cd ..
+          xcodebuild -project App/Stages.xcodeproj -scheme Stages -configuration Release \
+            -destination 'generic/platform=macOS' -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" -quiet build

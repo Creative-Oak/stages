@@ -4,6 +4,7 @@ import Sparkle
 import SwiftUI
 
 struct SettingsView: View {
+  let model: AppModel
   @AppStorage(ShortcutSettings.modifierKey) private var modifier = ShortcutSettings.Modifier.option.rawValue
   @AppStorage(ShortcutSettings.arrowsKey) private var arrows = true
   @AppStorage(ShortcutSettings.swipesKey) private var swipes = false
@@ -67,6 +68,7 @@ struct SettingsView: View {
         Theme.label("Trackpad")
       }
       if Updater.enabled { UpdatesSection() }
+      FeedbackSection(model: model)
       Section {
         LabeledContent("Accessibility") {
           if trusted {
@@ -78,7 +80,7 @@ struct SettingsView: View {
         LabeledContent("Screen Recording") {
           Text(Permissions.screenRecording ? "Allowed" : "Missing").foregroundStyle(.secondary)
         }
-        Text("Accessibility lets Stages raise windows to switch stages and listen for its shortcuts. Screen Recording lets it read window titles. Nothing leaves this Mac.")
+        Text("Accessibility lets Stages raise windows to switch stages and listen for its shortcuts. Screen Recording lets it read window titles. Titles, names and documents never leave this Mac.")
           .font(.callout).foregroundStyle(.secondary)
       } header: {
         Theme.label("Permissions")
@@ -114,15 +116,42 @@ private struct UpdatesSection: View {
   }
 }
 
+/// Opt-in error reports, and the ways to tell us about a problem.
+private struct FeedbackSection: View {
+  let model: AppModel
+  @State private var reports = ErrorReporting.isOptedIn
+
+  var body: some View {
+    Section {
+      if ErrorReporting.isAvailable {
+        Toggle("Send crash and error reports", isOn: Binding(
+          get: { reports }, set: { reports = $0; ErrorReporting.setOptedIn($0) }))
+        Text("Off unless you turn it on. A report holds the crash or error, your macOS and Stages versions, Mac model, and whether Stages has its permissions. Never window titles, app or stage names, documents or file paths.")
+          .font(.callout).foregroundStyle(.secondary)
+      }
+      LabeledContent("Something wrong?") {
+        HStack {
+          Button("Save Log…") { Feedback.saveLog() }
+          Button("Report a Problem…") { Feedback.reportProblem(model: model) }
+        }
+      }
+      Text("Report a Problem opens a GitHub issue with your Mac's setup filled in (no titles or names). Save Log saves Stages' recent log, which names apps: look it over before attaching it.")
+        .font(.callout).foregroundStyle(.secondary)
+    } header: {
+      Theme.label("Privacy & Feedback")
+    }
+  }
+}
+
 enum SettingsWindow {
   private static var window: NSWindow?
 
-  static func show() {
+  static func show(model: AppModel) {
     if window == nil {
       let w = NSWindow(contentRect: .zero, styleMask: [.titled, .closable], backing: .buffered, defer: false)
       w.title = "Stages Settings"
       w.isReleasedWhenClosed = false
-      w.contentView = NSHostingView(rootView: SettingsView())
+      w.contentView = NSHostingView(rootView: SettingsView(model: model))
       w.setContentSize(w.contentView!.fittingSize)
       w.center()
       window = w

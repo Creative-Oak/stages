@@ -41,6 +41,16 @@ struct PopoverView: View {
         .overlay(alignment: .leading) { Rectangle().fill(.primary).frame(width: 2) }
       Divider()
     }
+    if let notice = model.dataNotice {
+      HStack(alignment: .firstTextBaseline, spacing: 10) {
+        Text(notice).font(Theme.serif(12.5)).foregroundStyle(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
+        Spacer(minLength: 4)
+        Button("OK") { model.dismissDataNotice() }.controlSize(.small)
+      }
+      .padding(.horizontal, 14).padding(.vertical, 8)
+      Divider()
+    }
     if let note = model.wakeNote {
       Text(note).font(Theme.serif(12.5)).foregroundStyle(.secondary)
         .fixedSize(horizontal: false, vertical: true)
@@ -78,7 +88,7 @@ struct PopoverView: View {
         .disabled(model.snapshot == nil)
       Button("Matching…") { MatchingDebugWindow.show(model: model) }
       Spacer()
-      Button("Settings…") { SettingsWindow.show() }
+      Button("Settings…") { SettingsWindow.show(model: model) }
         .keyboardShortcut(",")
       Button("Quit Stages") { NSApp.terminate(nil) }
         .keyboardShortcut("q")

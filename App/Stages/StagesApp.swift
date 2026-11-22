@@ -18,6 +18,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var hotkeys: HotkeyTap?
 
   func applicationDidFinishLaunching(_ notification: Notification) {
+    // First, so a crash anywhere after this is reported (only if the user opted in).
+    ErrorReporting.startIfOptedIn()
     statusItem = StatusItemController(model: model)
     model.start()
     Self.setUpLoginItemOnce()
@@ -39,7 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       try SMAppService.mainApp.register()
       UserDefaults.standard.set(true, forKey: key)
     } catch {
-      NSLog("Stages: couldn't add the login item: \(error)")
+      ErrorReporting.error("couldn't add the login item", error, level: .warning)
     }
   }
 

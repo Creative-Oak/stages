@@ -33,6 +33,11 @@ public final class ActivityLog: @unchecked Sendable {
   private var last: (stageId: UUID, windows: [ActivityEntry.Window], name: String?)?
   private let lock = NSLock()
 
+  /// A failed append (called once per run of failures, not on every entry). The app logs and,
+  /// if the user opted in, reports it.
+  public var onError: (@Sendable (Error) -> Void)?
+  private var failing = false
+
   public init(fileURL: URL) { self.fileURL = fileURL }
 
   /// Appends `entry` unless it repeats the previous one. Returns whether it was written.
@@ -52,9 +57,11 @@ public final class ActivityLog: @unchecked Sendable {
       try handle.seekToEnd()
       try handle.write(contentsOf: line)
       last = (entry.stageId, entry.windows, entry.name)
+      failing = false
       return true
     } catch {
-      NSLog("Stages: couldn't append to \(fileURL.path): \(error)")
+      if !failing { onError?(error) }
+      failing = true
       return false
     }
   }

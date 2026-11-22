@@ -36,4 +36,24 @@ import Testing
     second.record(.init(ts: Date(), stageId: UUID(), name: nil, windows: [paper]))
     #expect(try second.read().count == 2)
   }
+
+  @Test func reportsAFailingAppendOncePerRun() throws {
+    // A plain file where the log's directory should be: every append fails.
+    let blocker = FileManager.default.temporaryDirectory.appendingPathComponent("stages-blocker-\(UUID().uuidString)")
+    try Data().write(to: blocker)
+    defer { try? FileManager.default.removeItem(at: blocker) }
+    let log = ActivityLog(fileURL: blocker.appendingPathComponent("activity.jsonl"))
+    let count = Counter()
+    log.onError = { _ in count.add() }
+    #expect(!log.record(.init(ts: Date(), stageId: UUID(), name: nil, windows: [mail])))
+    #expect(!log.record(.init(ts: Date(), stageId: UUID(), name: nil, windows: [paper])))
+    #expect(count.value == 1)
+  }
+}
+
+private final class Counter: @unchecked Sendable {
+  private let lock = NSLock()
+  private var n = 0
+  func add() { lock.lock(); n += 1; lock.unlock() }
+  var value: Int { lock.lock(); defer { lock.unlock() }; return n }
 }

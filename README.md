@@ -10,6 +10,7 @@ CGWindowList / AX APIs; see `NOTES.md` for every Stage Manager behaviour this re
 - `Sources/WindowSource` covers live CGWindowList capture and `StagePoller` (adaptive polling + activation notifications).
 - `Sources/StageStore` holds stage records (name, ink, slot) matched to snapshots by window IDs, saved to `~/Library/Application Support/Stages/stages.json`.
 - `App/` is the menu-bar app (`App/project.yml` → XcodeGen; sources in `App/Stages/`). Native AppKit/SwiftUI controls, with the design system's type, inks and rules.
+- `Sources/Reporting` holds what may go into an opt-in error report: path redaction and error summaries that never include a `localizedDescription`.
 - `Sources/stagesctl` is the debug CLI: record fixtures, read live or recorded captures, watch.
 - `Tests/StageReaderTests` holds the reader tests; recorded fixtures are in `Fixtures/`.
 - `tools/probe.swift` is the original standalone probe, kept as a debugging tool.
@@ -52,11 +53,43 @@ make publish VERSION=0.2.0   # sign, notarize, staple, appcast → tag v0.2.0 + 
 - the Sparkle EdDSA private key in the keychain, account `stages`. It was made with
   `generate_keys --account stages` (in `build/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/`);
   move it between Macs with `generate_keys --account stages -x key.txt` / `-f key.txt`. Lose it
-  and existing installs can't verify new updates.
+  and existing installs can't verify new updates;
+- for crash symbolication, `brew install getsentry/tools/sentry-cli` and `SENTRY_AUTH_TOKEN` set
+  to an org token (creative-oak.sentry.io → Settings → Auth Tokens). Without it the release
+  still ships, and the dSYMs zip on the GitHub release can be uploaded later.
+
+Don't mark a release as a pre-release on GitHub: the feed is `releases/latest`, which skips
+pre-releases, so installed copies would never see it.
 
 `CFBundleVersion` is the commit count, so builds only go up.
 
 The app needs its own Screen Recording grant (separate from your terminal's).
+
+CI (`.github/workflows/ci.yml`) runs the package tests and an unsigned Release build of the app on
+every push.
+
+### Error reports and feedback
+
+Crash and error reports go to Sentry (project `creative-oak/stages`), **only if the user turns
+them on** in Settings → Privacy & Feedback. A report holds the crash, hang or error, macOS and
+Stages versions, Mac model, permission state and a short trail of Stages' own steps; window
+titles, app and stage names, documents and file paths are never included (`ErrorReporting.swift`
+scrubs every event, `Sources/Reporting` is tested). The DSN is `SENTRY_DSN` in `App/project.yml`;
+while it's empty, the toggle isn't shown and release/publish stop (`NO_SENTRY=1` overrides).
+In the Sentry project, turn on Settings → Security & Privacy → "Prevent Storing of IP Addresses".
+
+Report errors from code with a fixed message, so nothing personal can be put in:
+
+```swift
+ErrorReporting.error("couldn't write state.json", error)   // StaticString + error domain/code
+ErrorReporting.breadcrumb("switch started")
+```
+
+Settings also has **Report a Problem…** (a GitHub issue with the Mac's setup filled in, no titles
+or names) and **Save Log…** (the last hour of Stages' log, which names apps).
+
+If `stages.json` can't be read at launch, it's moved aside as `stages.unreadable-<date>.json`
+rather than overwritten, and the popover says so.
 
 ### Switching
 
@@ -82,7 +115,8 @@ Bind these as Raycast Quicklinks (e.g. Hyper+1…9). Errors beep and show in the
 
 `~/Library/Application Support/Stages/state.json` holds the current stages (names, inks, slots,
 apps, window titles, document paths) plus named stages that aren't open, with their last titles
-and documents. It's rewritten when anything changes and never leaves the Mac.
+and documents. It's rewritten when anything changes and never leaves the Mac (nor do titles, names
+or documents in error reports).
 
 ### Sleeping stages
 
@@ -136,4 +170,4 @@ them), so fixtures can be committed without leaking what you were working on.
 
 ## License
 
-[GNU AGPL v3.0](LICENSE). Sparkle is MIT-licensed.
+[GNU AGPL v3.0](LICENSE). Sparkle and the Sentry SDK are MIT-licensed.

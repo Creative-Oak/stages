@@ -49,5 +49,7 @@
 	<string>ONBQKOPZlFnSYHTzi5vVqR9dkQBc8kdSxZicqHhgybw=</string>
 	<key>SUScheduledCheckInterval</key>
 	<integer>21600</integer>
+	<key>SentryDSN</key>
+	<string>$(SENTRY_DSN)</string>
 </dict>
 </plist>

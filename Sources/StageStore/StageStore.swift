@@ -14,6 +14,17 @@ public final class StageStore {
   /// Identity events (merge, split, revive, fingerprint match), record IDs only: no names or
   /// titles. The app sends them to the system log.
   public var onEvent: ((String) -> Void)?
+  /// Persistence failures. `message` is fixed text (no names, titles or paths); the app logs it
+  /// and, if the user opted in, reports it. A problem found while loading (before this is set)
+  /// waits in `loadProblem`.
+  public var onProblem: ((_ message: String, _ error: Error?) -> Void)?
+  /// What went wrong reading stages.json at launch, if anything.
+  public private(set) var loadProblem: (message: String, error: Error?)?
+  /// Where an unreadable stages.json was moved, so a fresh one doesn't overwrite it.
+  public private(set) var setAsideURL: URL?
+  /// Set when stages.json exists but could be neither read nor moved aside: saving would
+  /// destroy it, so nothing is saved this session.
+  public private(set) var savingBlocked = false
 
   /// Uncustomised records survive this long off screen (other Spaces, short app quits).
   public static let unnamedTTL: TimeInterval = 6 * 60 * 60
@@ -360,9 +371,17 @@ public final class StageStore {
   }
 
   private func load() {
-    guard let fileURL, let data = try? Data(contentsOf: fileURL),
-          let file = try? Self.decoder.decode(File.self, from: data) else { return }
-    records = Dictionary(uniqueKeysWithValues: file.records.map { ($0.id, $0) })
+    guard let fileURL, FileManager.default.fileExists(atPath: fileURL.path) else { return }
+    let file: File
+    do {
+      file = try Self.decoder.decode(File.self, from: Data(contentsOf: fileURL))
+    } catch {
+      // Unreadable (corrupt, or written by a newer version): keep it for recovery rather than
+      // overwrite it with an empty store on the next save.
+      setAside(fileURL, because: error)
+      return
+    }
+    records = Dictionary(file.records.map { ($0.id, $0) }, uniquingKeysWith: { a, b in a.createdAt <= b.createdAt ? a : b })
     // After a reboot window IDs restart and can collide with old ones: match by fingerprint only.
     if let stored = file.bootTime, abs(stored.timeIntervalSince(bootTime)) > 2 {
       for id in records.keys { records[id]?.windowIDs = [] }
@@ -370,14 +389,27 @@ public final class StageStore {
     }
   }
 
+  private func setAside(_ fileURL: URL, because error: Error) {
+    let stamp = ISO8601DateFormatter().string(from: now()).replacingOccurrences(of: ":", with: "-")
+    let aside = fileURL.deletingLastPathComponent().appendingPathComponent("stages.unreadable-\(stamp).json")
+    do {
+      try FileManager.default.moveItem(at: fileURL, to: aside)
+      setAsideURL = aside
+      loadProblem = ("stages.json was unreadable; moved aside, starting fresh", error)
+    } catch let moveError {
+      savingBlocked = true
+      loadProblem = ("stages.json was unreadable and couldn't be moved aside; not saving this session", moveError)
+    }
+  }
+
   private func save() {
-    guard let fileURL else { return }
+    guard let fileURL, !savingBlocked else { return }
     let file = File(version: 2, bootTime: bootTime, records: records.values.sorted { $0.createdAt < $1.createdAt })
     do {
       try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
       try Self.encoder.encode(file).write(to: fileURL, options: .atomic)
     } catch {
-      NSLog("Stages: couldn't save \(fileURL.path): \(error)")
+      onProblem?("couldn't save stages.json", error)
     }
   }
 

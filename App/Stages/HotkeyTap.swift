@@ -92,7 +92,8 @@ final class HotkeyTap {
       },
       userInfo: Unmanaged.passUnretained(self).toOpaque())
     else {
-      Self.log.error("event tap could not be created")
+      // Accessibility is granted, so this shouldn't happen (reported once per run).
+      ErrorReporting.error("event tap could not be created despite Accessibility")
       return false
     }
     let source = CFMachPortCreateRunLoopSource(nil, tap, 0)
