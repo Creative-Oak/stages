@@ -40,6 +40,8 @@ enum ErrorReporting {
   }
 
   private static func start() {
+    // A one-off client from a problem report (no crash handler) gives way to the full one.
+    if oneOffClient { SentrySDK.close(); oneOffClient = false }
     guard let dsn, !SentrySDK.isEnabled else { return }
     SentrySDK.start { o in
       o.dsn = dsn
@@ -143,6 +145,55 @@ enum ErrorReporting {
     let crumb = Breadcrumb(level: level.sentry, category: "stages")
     crumb.message = message.description
     SentrySDK.addBreadcrumb(crumb)
+  }
+
+  // MARK: Problem reports
+
+  /// A report file the user chose to attach (and saw in full first).
+  struct Attachment {
+    var filename: String
+    var text: String
+  }
+
+  /// Set while a client started only to send one problem report is up.
+  private static var oneOffClient = false
+
+  /// Sends a problem report written in the report window to Sentry's User Feedback. The user
+  /// wrote it and saw every attachment, so this works whether or not crash reports are on:
+  /// without them, a client with no crash handler or tracking is started just for this report
+  /// and closed once it's sent.
+  static func sendReport(message: String, email: String?, attachments: [Attachment]) {
+    guard let dsn else { return }
+    if !SentrySDK.isEnabled {
+      SentrySDK.start { o in
+        o.dsn = dsn
+        o.sendDefaultPii = false
+        o.enableCrashHandler = false
+        o.enableAutoSessionTracking = false
+        o.enableAutoBreadcrumbTracking = false
+        o.enableNetworkBreadcrumbs = false
+        o.enableCaptureFailedRequests = false
+        o.enableSwizzling = false
+        o.beforeSend = { @Sendable event in scrub(event) }
+      }
+      oneOffClient = true
+      updateContext()
+    }
+    let files = attachments.map {
+      Sentry.Attachment(data: Data($0.text.utf8), filename: $0.filename, contentType: "text/plain")
+    }
+    SentrySDK.capture(feedback: SentryFeedback(
+      message: message, name: nil, email: email, source: .custom, attachments: files))
+    log.notice("problem report sent (\(attachments.count) attachment(s))")
+    guard oneOffClient else { return }
+    Task.detached {
+      SentrySDK.flush(timeout: 10)
+      await MainActor.run {
+        guard oneOffClient else { return }
+        SentrySDK.close()
+        oneOffClient = false
+      }
+    }
   }
 
   /// Permissions and stage-reading state, attached to every report.

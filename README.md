@@ -85,8 +85,19 @@ ErrorReporting.error("couldn't write state.json", error)   // StaticString + err
 ErrorReporting.breadcrumb("switch started")
 ```
 
-Settings also has **Report a Problem…** (a GitHub issue with the Mac's setup filled in, no titles
-or names) and **Save Log…** (the last hour of Stages' log, which names apps).
+**Report a Problem…** (Settings, or "Report…" on a failed switch in the popover) opens a window
+where the tester describes the problem and ticks what to attach, each viewable in full first:
+
+- *Mac and Stages setup*: versions, Mac model, Stage Manager settings, permissions, problems this
+  run (on by default; no titles or names);
+- *Window layout*: a live capture with window titles replaced, in fixture format, so it replays
+  with `stagesctl read` or drops into `Tests/StageReaderTests/Fixtures`;
+- *Recent log*: the last hour of Stages' log (names apps).
+
+**Send Report** delivers it to Sentry → User Feedback, whether or not crash reports are on (a
+one-off client without crash handling is started for it). **Open GitHub Issue…** puts the text and
+setup in a public issue and reveals the other attachments in Finder to drag in. **Save Log…** in
+Settings saves the log on its own.
 
 If `stages.json` can't be read at launch, it's moved aside as `stages.unreadable-<date>.json`
 rather than overwritten, and the popover says so.

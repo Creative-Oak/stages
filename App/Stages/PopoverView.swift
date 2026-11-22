@@ -35,10 +35,16 @@ struct PopoverView: View {
       Divider()
     }
     if let problem = model.switchProblem {
-      Text(problem).font(Theme.grotesk(12, .medium))
-        .padding(.horizontal, 14).padding(.vertical, 7)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .overlay(alignment: .leading) { Rectangle().fill(.primary).frame(width: 2) }
+      HStack(alignment: .firstTextBaseline, spacing: 10) {
+        Text(problem).font(Theme.grotesk(12, .medium))
+          .fixedSize(horizontal: false, vertical: true)
+        Spacer(minLength: 4)
+        Button("Report…") { Feedback.reportProblem(model: model, context: problem) }
+          .buttonStyle(.link).font(.system(size: 12))
+      }
+      .padding(.horizontal, 14).padding(.vertical, 7)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .overlay(alignment: .leading) { Rectangle().fill(.primary).frame(width: 2) }
       Divider()
     }
     if let notice = model.dataNotice {

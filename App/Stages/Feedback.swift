@@ -6,26 +6,16 @@ import StageReader
 enum Feedback {
   static let newIssueURL = "https://github.com/Creative-Oak/stages/issues/new"
 
-  /// Opens a new GitHub issue with the questions to answer and the facts about this Mac and
-  /// Stages filled in. Issues are public, so those facts hold no titles, names or paths.
-  static func reportProblem(model: AppModel) {
-    let body = """
-      **What happened?**
+  /// Opens the report window (ReportProblemWindow.swift). `context` starts the message, e.g.
+  /// the problem the popover is showing.
+  static func reportProblem(model: AppModel, context: String? = nil) {
+    ReportProblemWindow.show(model: model, context: context)
+  }
 
-
-      **What did you expect to happen?**
-
-
-      **How can it be reproduced?**
-
-
-      <!-- If it's about how stages are read or matched, "Copy Diagnostics" in the popover copies \
-      the current reading, and Settings → Save Log… saves Stages' recent log. Both include window \
-      titles or app names: look them over before attaching. -->
-
-      ---
-      \(environment(model: model))
-      """
+  /// A new GitHub issue with the tester's text and, if they kept it, the setup facts.
+  static func openIssue(message: String, setup: String?) {
+    var body = message
+    if let setup { body += "\n\n---\n" + setup }
     var c = URLComponents(string: newIssueURL)!
     c.queryItems = [URLQueryItem(name: "body", value: body)]
     if let url = c.url { NSWorkspace.shared.open(url) }
@@ -95,7 +85,7 @@ enum Feedback {
     }
   }
 
-  nonisolated private static func recentLog() throws -> String {
+  nonisolated static func recentLog() throws -> String {
     let store = try OSLogStore(scope: .currentProcessIdentifier)
     let start = store.position(date: Date().addingTimeInterval(-3600))
     let entries = try store.getEntries(at: start, matching: NSPredicate(format: "subsystem == %@", "dk.creativeoak.stages"))

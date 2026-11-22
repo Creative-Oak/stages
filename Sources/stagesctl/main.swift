@@ -74,27 +74,6 @@ func json<T: Encodable>(_ v: T) -> String {
   String(data: try! Fixture.encoder().encode(v), encoding: .utf8)!
 }
 
-/// Replace app window titles with stable placeholders so fixtures can be committed.
-/// WindowManager's own titles (overlay, icon) are kept: the reader needs them.
-func redact(_ frames: [WindowCapture]) -> [WindowCapture] {
-  var names: [UInt32: String] = [:]
-  var perOwner: [String: Int] = [:]
-  return frames.map { c in
-    var c = c
-    c.windows = c.windows.map { w in
-      var w = w
-      guard w.owner != StageManagerConstants.ownerName, let n = w.name, !n.isEmpty else { return w }
-      if names[w.id] == nil {
-        perOwner[w.owner, default: 0] += 1
-        names[w.id] = "\(w.owner) window \(perOwner[w.owner]!)"
-      }
-      w.name = names[w.id]
-      return w
-    }
-    return c
-  }
-}
-
 switch command {
 case "bench":
   // Per-read cost of the poll, split up: own CPU (user + sys), so waiting on WindowServer or
@@ -180,7 +159,7 @@ case "record":
     captures.append(source.capture())
   }
   warnPermissions(captures[0])
-  if !keepTitles { captures = redact(captures) }
+  if !keepTitles { captures = WindowCapture.redactingTitles(captures) }
   let fixture = Fixture(name: name, note: note, intervalMs: interval, frames: captures)
   try FileManager.default.createDirectory(atPath: out, withIntermediateDirectories: true)
   let path = (out as NSString).appendingPathComponent("\(name).json")

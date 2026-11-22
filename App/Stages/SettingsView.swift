@@ -135,7 +135,7 @@ private struct FeedbackSection: View {
           Button("Report a Problem…") { Feedback.reportProblem(model: model) }
         }
       }
-      Text("Report a Problem opens a GitHub issue with your Mac's setup filled in (no titles or names). Save Log saves Stages' recent log, which names apps: look it over before attaching it.")
+      Text("Report a Problem lets you describe what went wrong and choose which diagnostics to attach, each shown in full first. Save Log saves Stages' recent log, which names apps.")
         .font(.callout).foregroundStyle(.secondary)
     } header: {
       Theme.label("Privacy & Feedback")

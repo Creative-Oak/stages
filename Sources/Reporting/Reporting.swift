@@ -13,7 +13,8 @@ public enum Redactor {
       s = replace(NSRegularExpression.escapedPattern(for: home) + #"(?=/|$|[\s"'])"#, in: s, with: "~")
     }
     s = replace(#"/Users/[^/\s"':]+"#, in: s, with: "/Users/<user>")
-    s = replace(#"/Volumes/[^/\s"':]+"#, in: s, with: "/Volumes/<volume>")
+    // Volume names can contain spaces; a volume component ends at the next slash or line.
+    s = replace(#"/Volumes/[^/\n"':]+"#, in: s, with: "/Volumes/<volume>")
     return s
   }
 
